@@ -1,23 +1,20 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from app.models import ErrorResponse, ScrapeRequest, ScrapeResponse
 
 from app.scraper import ScraperError, scrape_website
 
 
 app = FastAPI()
 
-
-class ScrapeRequest(BaseModel):
-    url:str
     
 @app.get("/")
-def read_root() -> dict[str,str]:
+def read_root() -> dict[str, str]:
     return{"message": "Web Scraper is running"}
 
-@app.post("/scrape")
-def scrape(request: ScrapeRequest) -> dict:
+@app.post("/scrape", response_model=ScrapeResponse, responses={400: {"model": ErrorResponse}})
+def scrape(request: ScrapeRequest) -> ScrapeResponse:
     try:
-        return scrape_website(request.url)
+        return ScrapeResponse(**scrape_website(request.url))
     except ScraperError as exc:
-        raise HTTPException(status_code = 400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     
