@@ -14,86 +14,88 @@ DEFAULT_TIMEOUT = 10
 
 
 class ScraperError(Exception):
-    """Raised when the scraper cannot safely fetch or parse a webpage."""
 
 
-def validate_url(url: str) -> str:
-    """Validate that the URL is a non-empty HTTPS URL."""
+def validate_url(url:str) -> str:
     cleaned_url = url.strip()
     if not cleaned_url:
-        raise ScraperError("URL cannot be empty.")
-
+        raise ScraperError("The URL cannot be empty")
     parsed_url = urlparse(cleaned_url)
+    
     if parsed_url.scheme != "https":
-        raise ScraperError("Only HTTPS URLs are allowed.")
-
+        raise ScraperError("Only HTTPS URLs are allowed")
+    
     if not parsed_url.netloc:
-        raise ScraperError("Invalid URL. A domain is required.")
-
+        raise ScraperError("Invalid URL Domain request")
+    
     return cleaned_url
 
-
-def fetch_webpage(url: str, timeout: int = DEFAULT_TIMEOUT) -> Response:
-    """Fetch a webpage and raise a readable error for network problems."""
+def fetch_webpage(url:str,timeout:int = DEFAULT_TIMEOUT) -> Response:
+    
     validated_url = validate_url(url)
-
+    
     try:
         response = requests.get(validated_url, timeout=timeout)
         response.raise_for_status()
         return response
+    
     except Timeout as exc:
-        raise ScraperError("The request timed out while fetching the webpage.") from exc
+        raise ScraperError("Request Timout while fetching webpage") from exc
+    
     except RequestException as exc:
-        raise ScraperError(f"Failed to fetch the webpage: {exc}") from exc
-
-
-def _extract_meta_description(soup: BeautifulSoup) -> str:
-    description_tag = soup.find("meta", attrs={"name": "description"})
+        raise ScraperError("Failed to fetch webpage:{exc}") from exc
+    
+def _extract_meta_description(soup:BeautifulSoup) -> str:
+    description_tag = soup.find("meta", attrs= {"name":"description"})
+    
     if description_tag and description_tag.get("content"):
         return description_tag["content"].strip()
-
-    og_description_tag = soup.find("meta", attrs={"property": "og:description"})
+    
+    og_description_tag = soup.find("meta", attrs={"property":"og:description"})
     if og_description_tag and og_description_tag.get("content"):
         return og_description_tag["content"].strip()
+    
+    return " "
 
-    return ""
-
-
-def _extract_links(soup: BeautifulSoup) -> list[str]:
-    links: list[str] = []
-    for tag in soup.find_all("a", href=True):
-        href = tag.get("href", "").strip()
+def _extract_links(soup:BeautifulSoup) -> list[str]:
+    links:list[str] = []
+    
+    for tag in soup.find_all("a",href=True):
+        href = tag.get("href"," ").strip()
         if href:
             links.append(href)
+    
     return links
 
-
-def _extract_images(soup: BeautifulSoup) -> list[str]:
-    images: list[str] = []
-    for tag in soup.find_all("img", src=True):
-        src = tag.get("src", "").strip()
+def _extract_images(soup:BeautifulSoup) -> list[str]:
+    images:list[str] = []
+    
+    for tag in soup.find_all("img",src=True):
+        src = tag.get("src"," ").strip()
         if src:
             images.append(src)
+    
     return images
 
-
-def _extract_headings(soup: BeautifulSoup) -> list[str]:
-    headings: list[str] = []
-    for level in ("h1", "h2", "h3", "h4", "h5", "h6"):
+def _extract_headings(soup:BeautifulSoup) -> list[str]:
+    headings:list[str] = []
+    
+    for level in ("h1","h2","h3","h4","h5","h6"):
+        
         for tag in soup.find_all(level):
             text = tag.get_text(strip=True)
             if text:
                 headings.append(text)
+    
     return headings
 
-
-def parse_html(html: str) -> dict[str, Any]:
-    """Extract structured data from HTML without crashing on missing fields."""
-    soup = BeautifulSoup(html, "html.parser")
-
+def parse_html(html:str) -> dict[str,Any]:
+    
+    soup = BeautifulSoup(html,"html.parser")
+    
     title_tag = soup.find("title")
-    title = title_tag.get_text(strip=True) if title_tag else ""
-
+    title = title_tag.get_text(strip=True) if title_tag else " "
+    
     return {
         "title": title,
         "meta_description": _extract_meta_description(soup),
@@ -101,45 +103,45 @@ def parse_html(html: str) -> dict[str, Any]:
         "images": _extract_images(soup),
         "headings": _extract_headings(soup),
     }
-
-
-def scrape_website(url: str, timeout: int = DEFAULT_TIMEOUT) -> dict[str, Any]:
-    """Fetch a webpage and return structured data plus basic response info."""
-    response = fetch_webpage(url, timeout=timeout)
-
-    content_type = response.headers.get("Content-Type", "")
+    
+def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any]:
+    
+    response = fetch_webpage(url,timeout=timeout)
+    content_type = response.headers.get("Content_Type"," ")
+    
     if "html" not in content_type.lower():
-        raise ScraperError("The URL did not return an HTML page.")
-
+        raise ScraperError("The URL did not return HTML page")
+    
     scraped_data = parse_html(response.text)
+    
     scraped_data.update(
-        {
-            "url": response.url,
-            "status_code": response.status_code,
-            "content_length": len(response.content),
+        {"url": response.url,
+         "status_code": response.status_code,
+         "content_length": len(response.content),
         }
     )
     return scraped_data
 
 
 def main() -> int:
-    """Run the scraper from the command line."""
-    if len(sys.argv) != 2:
+    
+    if len(sys.argv)!=2:
         print("Usage: python app/scraper.py https://example.com")
         return 1
-
+    
     url = sys.argv[1]
-
+    
     try:
         result = scrape_website(url)
+        
     except ScraperError as exc:
-        print(f"Error: {exc}")
+        print(f"Error : {exc}")
         return 1
-
-    print(f"Status Code: {result['status_code']}")
-    print(f"Content Length: {result['content_length']} bytes")
+    
+    print(f"Status Code :{result['status_code']}")
+    print(f"Content Length:{result['content_length'] bytes}")
     print(f"Title: {result['title'] or 'N/A'}")
-    print(f"Meta Description: {result['meta_description'] or 'N/A'}")
+    print(f"Meta Description:{result['meta_description'] or 'N/A'}")
     print(f"Links Found: {len(result['links'])}")
     print(f"Images Found: {len(result['images'])}")
     print(f"Headings Found: {len(result['headings'])}")
