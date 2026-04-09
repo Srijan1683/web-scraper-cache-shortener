@@ -44,7 +44,7 @@ def fetch_webpage(url:str,timeout:int = DEFAULT_TIMEOUT) -> Response:
         raise ScraperError("Request Timout while fetching webpage") from exc
     
     except RequestException as exc:
-        raise ScraperError("Failed to fetch webpage:{exc}") from exc
+        raise ScraperError(f"Failed to fetch webpage: {exc}") from exc
     
 def _extract_meta_description(soup:BeautifulSoup) -> str:
     description_tag = soup.find("meta", attrs= {"name":"description"})
@@ -56,13 +56,13 @@ def _extract_meta_description(soup:BeautifulSoup) -> str:
     if og_description_tag and og_description_tag.get("content"):
         return og_description_tag["content"].strip()
     
-    return " "
+    return ""
 
 def _extract_links(soup:BeautifulSoup) -> list[str]:
     links:list[str] = []
     
     for tag in soup.find_all("a",href=True):
-        href = tag.get("href"," ").strip()
+        href = tag.get("href","").strip()
         if href:
             links.append(href)
     
@@ -72,7 +72,7 @@ def _extract_images(soup:BeautifulSoup) -> list[str]:
     images:list[str] = []
     
     for tag in soup.find_all("img",src=True):
-        src = tag.get("src"," ").strip()
+        src = tag.get("src","").strip()
         if src:
             images.append(src)
     
@@ -95,7 +95,7 @@ def parse_html(html:str) -> dict[str,Any]:
     soup = BeautifulSoup(html,"html.parser")
     
     title_tag = soup.find("title")
-    title = title_tag.get_text(strip=True) if title_tag else " "
+    title = title_tag.get_text(strip=True) if title_tag else ""
     
     return {
         "title": title,
@@ -108,7 +108,7 @@ def parse_html(html:str) -> dict[str,Any]:
 def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any]:
     
     response = fetch_webpage(url,timeout=timeout)
-    content_type = response.headers.get("Content_Type"," ")
+    content_type = response.headers.get("Content-Type","")
     
     if "html" not in content_type.lower():
         raise ScraperError("The URL did not return HTML page")
