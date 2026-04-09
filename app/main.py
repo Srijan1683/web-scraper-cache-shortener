@@ -8,17 +8,16 @@ app = FastAPI()
 
 
 class ScrapeRequest(BaseModel):
-    url: str
-
-
+    url:str
+    
 @app.get("/")
-def read_root() -> dict[str, str]:
-    return {"message": "Web scraper API is running."}
-
+def read_root() -> dict[str,str]:
+    return{"message": "Web Scraper is running"}
 
 @app.post("/scrape")
 def scrape(request: ScrapeRequest) -> dict:
     try:
         return scrape_website(request.url)
     except ScraperError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code = 400, detail=str(exc)) from exc
+    
