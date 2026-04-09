@@ -14,6 +14,7 @@ DEFAULT_TIMEOUT = 10
 
 
 class ScraperError(Exception):
+    """Raised when the scraper cannot safely fetch or parse the webpage"""
 
 
 def validate_url(url:str) -> str:
@@ -139,7 +140,7 @@ def main() -> int:
         return 1
     
     print(f"Status Code :{result['status_code']}")
-    print(f"Content Length:{result['content_length'] bytes}")
+    print(f"Content Length:{result['content_length']} bytes")
     print(f"Title: {result['title'] or 'N/A'}")
     print(f"Meta Description:{result['meta_description'] or 'N/A'}")
     print(f"Links Found: {len(result['links'])}")
