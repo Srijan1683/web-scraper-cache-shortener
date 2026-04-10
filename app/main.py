@@ -3,6 +3,7 @@ from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeRespons
 
 from app.scraper import ScraperError, scrape_website
 from app.shortener import generate_short_code
+from app.cache import get_cached_result, set_cached_result
 
 
 app = FastAPI()
@@ -16,13 +17,20 @@ def read_root() -> dict[str, str]:
 @app.post("/scrape", response_model=ScrapeResult, responses={400: {"model": ErrorResponse}})
 def scrape(request: ScrapeRequest) -> ScrapeResult:
     try:
-        scraped_data = scrape_website(request.url)
-        short_code = generate_short_code(request.url)
+        cached_result = get_cached_result(request.url)
+        if cached_result is not None:
+            return cached_result
+        else:
+            scraped_data = scrape_website(request.url)
+            short_code = generate_short_code(request.url)
+            result = ScrapeResult(
+                short_code=short_code,
+                data=ScrapeResponse(**scraped_data),
+            )
+            set_cached_result(request.url, result)
 
-        return ScrapeResult(
-            short_code=short_code,
-            data=ScrapeResponse(**scraped_data),
-        )
+        return result
+        
 
     except ScraperError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
