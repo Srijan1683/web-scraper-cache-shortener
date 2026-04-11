@@ -4,7 +4,7 @@ from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeRespons
 from app.scraper import ScraperError, scrape_website
 from app.shortener import generate_short_code
 from app.cache import get_cached_result, set_cached_result
-from config import APP_TITLE, APP_VERSION
+from app.config import APP_TITLE, APP_VERSION
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
 

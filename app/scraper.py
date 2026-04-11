@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests import Response
 from requests.exceptions import RequestException, Timeout
-from config import DEFAULT_TIMEOUT
+from app.config import DEFAULT_TIMEOUT
 
 
 class ScraperError(Exception):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from config import DEFAULT_CODE_LENGTH
+from app.config import DEFAULT_CODE_LENGTH
 
 def generate_short_code(url:str, length:int = DEFAULT_CODE_LENGTH) -> str:
     if not url.strip():
