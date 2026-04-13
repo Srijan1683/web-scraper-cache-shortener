@@ -8,20 +8,20 @@ from app.config import APP_TITLE, APP_VERSION
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
 
-    
+
 @app.get("/")
 def read_root() -> dict[str, str]:
     return {"message": "Web Scraper is running"}
 
 
 @app.post("/scrape", response_model=ScrapeResult, responses={400: {"model": ErrorResponse}})
-def scrape(request: ScrapeRequest) -> ScrapeResult:
+async def scrape(request: ScrapeRequest) -> ScrapeResult:
     try:
         cached_result = get_cached_result(request.url)
         if cached_result is not None:
             return cached_result
         else:
-            scraped_data = scrape_website(request.url)
+            scraped_data = await scrape_website(request.url)
             short_code = generate_short_code(request.url)
             result = ScrapeResult(
                 short_code=short_code,
