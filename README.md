@@ -90,6 +90,14 @@ Run all tests with:
 PYTHONPATH=. pytest tests/ -v
 ```
 
+## Future Improvements
+
+Planned improvements for the next version of this project include:
+
+- converting the scraping and request-handling flow to an asynchronous implementation for better scalability
+- expanding the service further as a REST API with additional endpoints and cleaner resource-oriented design
+- adding TTL-based cache expiration so cached results can automatically expire after a defined period
+
 ## Conclusion
 
 This project demonstrates how a backend application can be built by combining independent components into one workflow. The scraper handles webpage extraction, the shortener produces deterministic short codes, the cache avoids repeated work for the same URL, and the API exposes the final functionality in a usable form.
