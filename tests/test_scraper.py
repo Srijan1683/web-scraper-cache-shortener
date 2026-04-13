@@ -119,7 +119,7 @@ def test_scrape_website_returns_structured_data(monkeypatch):
         content = text.encode()
         headers = {"Content-Type": "text/html; charset=utf-8"}
 
-    def fake_fetch_webpage(url, timeout=10):
+    async def fake_fetch_webpage(url, timeout=10):
         return FakeResponse()
 
     monkeypatch.setattr("app.scraper.fetch_webpage", fake_fetch_webpage)
@@ -144,7 +144,7 @@ def test_scrape_website_raises_error_for_non_html_response(monkeypatch):
         content = text.encode()
         headers = {"Content-Type": "application/pdf"}
 
-    def fake_fetch_webpage(url, timeout=10):
+    async def fake_fetch_webpage(url, timeout=10):
         return FakeResponse()
 
     monkeypatch.setattr("app.scraper.fetch_webpage", fake_fetch_webpage)

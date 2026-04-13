@@ -4,11 +4,11 @@ import sys
 from typing import Any
 from urllib.parse import urlparse
 
-import requests
 from bs4 import BeautifulSoup
-from requests import Response
-from requests.exceptions import RequestException, Timeout
+
 from app.config import DEFAULT_TIMEOUT
+import httpx
+import asyncio
 
 
 class ScraperError(Exception):
@@ -29,19 +29,20 @@ def validate_url(url:str) -> str:
     
     return cleaned_url
 
-def fetch_webpage(url:str,timeout:int = DEFAULT_TIMEOUT) -> Response:
+async def fetch_webpage(url:str,timeout:int = DEFAULT_TIMEOUT) -> httpx.Response:
     
     validated_url = validate_url(url)
     
     try:
-        response = requests.get(validated_url, timeout=timeout)
-        response.raise_for_status()
-        return response
+        async with httpx.AsyncClient(timeout = timeout, follow_redirects=True) as client:
+            response = await client.get(validated_url)
+            response.raise_for_status()
+            return response
     
-    except Timeout as exc:
-        raise ScraperError("Request Timout while fetching webpage") from exc
+    except httpx.TimeoutException as exc:
+        raise ScraperError("Request Timeout while fetching webpage") from exc
     
-    except RequestException as exc:
+    except httpx.HTTPError as exc:
         raise ScraperError(f"Failed to fetch webpage: {exc}") from exc
     
 def _extract_meta_description(soup:BeautifulSoup) -> str:
@@ -103,9 +104,9 @@ def parse_html(html:str) -> dict[str,Any]:
         "headings": _extract_headings(soup),
     }
     
-def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any]:
+async def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any]:
     
-    response = fetch_webpage(url,timeout=timeout)
+    response = await fetch_webpage(url,timeout=timeout)
     content_type = response.headers.get("Content-Type","")
     
     if "html" not in content_type.lower():
@@ -131,7 +132,7 @@ def main() -> int:
     url = sys.argv[1]
     
     try:
-        result = scrape_website(url)
+        result = asyncio.run(scrape_website(url))
         
     except ScraperError as exc:
         print(f"Error : {exc}")
