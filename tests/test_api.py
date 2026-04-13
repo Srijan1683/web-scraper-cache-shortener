@@ -8,7 +8,7 @@ client = TestClient(app)
 
 
 def test_scrape_endpoint_returns_scraped_data(monkeypatch):
-    def fake_scrape_website(url):
+    async def fake_scrape_website(url):
         return {
             "url": url,
             "status_code": 200,
@@ -45,7 +45,7 @@ def test_scrape_endpoint_returns_scraped_data(monkeypatch):
 
 
 def test_scrape_endpoint_returns_400_for_scraper_error(monkeypatch):
-    def fake_scrape_website(url):
+    async def fake_scrape_website(url):
         raise ScraperError("Only HTTPS URLs are allowed.")
 
     monkeypatch.setattr("app.main.scrape_website", fake_scrape_website)

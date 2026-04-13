@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from app.scraper import ScraperError, parse_html, validate_url, scrape_website
 
@@ -124,7 +126,7 @@ def test_scrape_website_returns_structured_data(monkeypatch):
 
     monkeypatch.setattr("app.scraper.fetch_webpage", fake_fetch_webpage)
 
-    result = scrape_website("https://example.com")
+    result = asyncio.run(scrape_website("https://example.com"))
 
     assert result["url"] == "https://example.com"
     assert result["status_code"] == 200
@@ -150,4 +152,4 @@ def test_scrape_website_raises_error_for_non_html_response(monkeypatch):
     monkeypatch.setattr("app.scraper.fetch_webpage", fake_fetch_webpage)
 
     with pytest.raises(ScraperError, match="The URL did not return HTML page"):
-        scrape_website("https://example.com/file.pdf")
+        asyncio.run(scrape_website("https://example.com/file.pdf"))
