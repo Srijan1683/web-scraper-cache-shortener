@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
 
 from app.scraper import ScraperError, scrape_website, scrape_website_as_markdown
@@ -8,11 +11,24 @@ from app.cache import get_cached_result, set_cached_result
 from app.config import APP_TITLE, APP_VERSION
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
+UI_DIR = Path(__file__).resolve().parent.parent / "ui"
+
+app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 
 
-@app.get("/")
-def read_root() -> dict[str, str]:
-    return {"message": "Web Scraper is running"}
+@app.get("/", include_in_schema=False)
+def read_root() -> FileResponse:
+    return FileResponse(UI_DIR / "index.html")
+
+
+@app.get("/style.css", include_in_schema=False)
+def read_ui_styles() -> FileResponse:
+    return FileResponse(UI_DIR / "style.css")
+
+
+@app.get("/app.js", include_in_schema=False)
+def read_ui_script() -> FileResponse:
+    return FileResponse(UI_DIR / "app.js")
 
 
 @app.post("/scrape", response_model=ScrapeResult, responses={400: {"model": ErrorResponse}})

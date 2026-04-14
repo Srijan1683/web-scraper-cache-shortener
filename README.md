@@ -77,6 +77,12 @@ Start the FastAPI server with:
 PYTHONPATH=. uvicorn app.main:app --reload
 ```
 
+If you want a shorter command without manually activating the virtual environment, use:
+
+```bash
+python3 run.py
+```
+
 Then open:
 
 - `http://127.0.0.1:8000/`

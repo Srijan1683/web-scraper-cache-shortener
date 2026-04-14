@@ -7,6 +7,14 @@ from app.scraper import ScraperError
 client = TestClient(app)
 
 
+def test_root_serves_frontend():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Web Scraper Studio" in response.text
+    assert "text/html" in response.headers["content-type"]
+
+
 def test_scrape_endpoint_returns_scraped_data(monkeypatch):
     async def fake_scrape_website(url):
         return {
