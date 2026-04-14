@@ -1,3 +1,3 @@
 window.WEB_SCRAPER_CONFIG = {
-  apiBaseUrl: "",
+  apiBaseUrl: "https://web-scraper-api-2xs0.onrender.com",
 };
