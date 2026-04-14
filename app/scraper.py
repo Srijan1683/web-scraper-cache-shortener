@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from app.config import DEFAULT_TIMEOUT
 import httpx
 import asyncio
+from markdownify import markdownify as md
 
 
 class ScraperError(Exception):
@@ -104,6 +105,19 @@ def parse_html(html:str) -> dict[str,Any]:
         "headings": _extract_headings(soup),
     }
     
+def convert_html_to_markdown(html:str) -> str:
+    return md(html, heading_style="ATX").strip()
+
+async def scrape_website_as_markdown(url:str, timeout:int = DEFAULT_TIMEOUT) -> str:
+    
+    response = await fetch_webpage(url, timeout=timeout)
+    content_type = response.headers.get("Content-Type", "")
+    
+    if "html" not in content_type.lower():
+        raise ScraperError("The URL did not return HTML page")
+    
+    return convert_html_to_markdown(response.text)
+
 async def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any]:
     
     response = await fetch_webpage(url,timeout=timeout)
@@ -115,13 +129,12 @@ async def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any
     scraped_data = parse_html(response.text)
     
     scraped_data.update(
-        {"url": response.url,
+        {"url": str(response.url),
          "status_code": response.status_code,
          "content_length": len(response.content),
         }
     )
     return scraped_data
-
 
 def main() -> int:
     
