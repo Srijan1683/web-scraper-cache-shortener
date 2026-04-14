@@ -9,13 +9,28 @@ const previewDescription = document.querySelector("#preview-description");
 const previewMetrics = document.querySelector("#preview-metrics");
 const previewMeta = document.querySelector("#preview-meta");
 const scrapedDataScroll = document.querySelector("#scraped-data-scroll");
+const docsLink = document.querySelector("#docs-link");
 
-const API_BASE =
-  window.location.protocol === "file:"
-    ? "http://127.0.0.1:8000"
-    : window.location.origin;
+function resolveApiBase() {
+  const configuredBase = window.WEB_SCRAPER_CONFIG?.apiBaseUrl?.trim();
+  if (configuredBase) {
+    return configuredBase.replace(/\/+$/, "");
+  }
+
+  if (window.location.protocol === "file:") {
+    return "http://127.0.0.1:8000";
+  }
+
+  return window.location.origin;
+}
+
+const API_BASE = resolveApiBase();
 
 let currentPreviewUrl = "";
+
+if (docsLink) {
+  docsLink.href = `${API_BASE}/docs`;
+}
 
 function setStatus(state, title, message) {
   statusCard.innerHTML = `

@@ -1,6 +1,8 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
@@ -12,6 +14,19 @@ from app.config import APP_TITLE, APP_VERSION
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
+CORS_ALLOW_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000").split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 

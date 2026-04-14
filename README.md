@@ -88,6 +88,35 @@ Then open:
 - `http://127.0.0.1:8000/`
 - `http://127.0.0.1:8000/docs`
 
+## Deployment
+
+Recommended setup:
+
+- deploy the frontend in `ui/` to Netlify
+- deploy the FastAPI backend to Render
+
+### Netlify frontend
+
+This repository includes `netlify.toml`, so Netlify can publish the `ui/` folder directly.
+
+Before deploying the frontend, set the backend URL in `ui/config.js`:
+
+```js
+window.WEB_SCRAPER_CONFIG = {
+  apiBaseUrl: "https://your-render-service.onrender.com",
+};
+```
+
+### Render backend
+
+This repository includes `render.yaml` for the FastAPI service.
+
+Set the `CORS_ALLOW_ORIGINS` environment variable in Render to your Netlify site URL, for example:
+
+```text
+https://your-site.netlify.app
+```
+
 ## Running the Tests
 
 Run all tests with:
