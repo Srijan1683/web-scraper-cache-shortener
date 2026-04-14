@@ -1,25 +1,33 @@
 from __future__ import annotations
-from typing import Any
+from app.models import ScrapeResult
 
-url_cache: dict[str,Any] = {}
+from redis import Redis
 
-def get_cached_result(url) -> Any:
-    return url_cache.get(url)
+
+r = Redis(host="localhost", port=6379, db=0, decode_responses=True)
+
+
+
+def get_cached_result(url:str) -> ScrapeResult | None:
+    cached_data = r.get(url)
+    if cached_data is None:
+        return None
+    return ScrapeResult.model_validate_json(cached_data)
  
-def set_cached_result(url,data):
-    url_cache[url] = data
+def set_cached_result(url:str, data:ScrapeResult) -> None:
+    r.set(url, data.model_dump_json())
 
-def has_cached_result(url) -> bool:
-    return url in url_cache
+def has_cached_result(url:str) -> bool:
+    return r.exists(url)==1 
 
 def clear_cache() -> None:
-    url_cache.clear()
+    r.flushdb()
 
-def delete_cached_result(url) -> None:
-    url_cache.pop(url, None)
+def delete_cached_result(url:str) -> None:
+    r.delete(url)
 
 def get_cache_size() -> int:
-    return len(url_cache)
+    return r.dbsize()
     
 def get_all_cached_urls() -> list[str]:
-    return list(url_cache.keys())
+    return [key for key in r.keys("*")]
