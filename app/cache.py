@@ -1,33 +1,98 @@
 from __future__ import annotations
+
+import os
+import time
+
 from app.models import ScrapeResult
 
-from redis import Redis
+try:
+    from redis import Redis
+except ModuleNotFoundError:  # pragma: no cover - optional dependency in deploys
+    Redis = None  # type: ignore[assignment]
 
 
-r = Redis(host="localhost", port=6379, db=0, decode_responses=True)
 CACHE_TTL = 3600
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+
+_memory_cache: dict[str, tuple[float, str]] = {}
 
 
-def get_cached_result(url:str) -> ScrapeResult | None:
-    cached_data = r.get(url)
-    if cached_data is None:
+def _purge_expired_memory_entries() -> None:
+    now = time.time()
+    expired_urls = [url for url, (expires_at, _) in _memory_cache.items() if expires_at <= now]
+    for url in expired_urls:
+        _memory_cache.pop(url, None)
+
+
+def _get_redis_client() -> Redis | None:
+    if Redis is None or not REDIS_URL:
         return None
-    return ScrapeResult.model_validate_json(cached_data)
- 
-def set_cached_result(url:str, data:ScrapeResult) -> None:
-    r.set(url, data.model_dump_json(), ex=CACHE_TTL)
 
-def has_cached_result(url:str) -> bool:
-    return r.exists(url) == 1 
+    return Redis.from_url(REDIS_URL, decode_responses=True)
+
+
+def get_cached_result(url: str) -> ScrapeResult | None:
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        cached_data = redis_client.get(url)
+        if cached_data is None:
+            return None
+        return ScrapeResult.model_validate_json(cached_data)
+
+    _purge_expired_memory_entries()
+    cached_entry = _memory_cache.get(url)
+    if cached_entry is None:
+        return None
+
+    _, cached_data = cached_entry
+    return ScrapeResult.model_validate_json(cached_data)
+
+
+def set_cached_result(url: str, data: ScrapeResult) -> None:
+    serialized_data = data.model_dump_json()
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        redis_client.set(url, serialized_data, ex=CACHE_TTL)
+        return
+
+    _memory_cache[url] = (time.time() + CACHE_TTL, serialized_data)
+
+
+def has_cached_result(url: str) -> bool:
+    return get_cached_result(url) is not None
+
 
 def clear_cache() -> None:
-    r.flushdb()
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        redis_client.flushdb()
+        return
 
-def delete_cached_result(url:str) -> None:
-    r.delete(url)
+    _memory_cache.clear()
+
+
+def delete_cached_result(url: str) -> None:
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        redis_client.delete(url)
+        return
+
+    _memory_cache.pop(url, None)
+
 
 def get_cache_size() -> int:
-    return r.dbsize()
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        return int(redis_client.dbsize())
+
+    _purge_expired_memory_entries()
+    return len(_memory_cache)
+
 
 def get_all_cached_urls() -> list[str]:
-    return [key for key in r.keys("*")]
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        return [key for key in redis_client.keys("*")]
+
+    _purge_expired_memory_entries()
+    return list(_memory_cache.keys())
