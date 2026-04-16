@@ -7,8 +7,8 @@ from app.models import ScrapeResult
 
 try:
     from redis import Redis
-except ModuleNotFoundError:  # pragma: no cover - optional dependency in deploys
-    Redis = None  # type: ignore[assignment]
+except ModuleNotFoundError:
+    Redis = None
 
 
 CACHE_TTL = 3600
