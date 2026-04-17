@@ -22,6 +22,8 @@ The main areas of focus were:
 
 This project was also intended to strengthen understanding of modular code structure, exception handling, and testing practices in Python.
 
+The current roadmap also includes AI-powered summarisation for scraped content, especially markdown output generated from webpages.
+
 ## What the Project Does
 
 The application accepts a URL through a `POST /scrape` API endpoint.
@@ -132,6 +134,8 @@ Planned improvements for the next version of this project include:
 - converting the scraping and request-handling flow to an asynchronous implementation for better scalability
 - expanding the service further as a REST API with additional endpoints and cleaner resource-oriented design
 - adding TTL-based cache expiration so cached results can automatically expire after a defined period
+- adding an AI summarisation step for generated markdown files so users can receive concise page summaries alongside raw scraped content
+- introducing scrape lifecycle states such as `queued`, `crawling`, `summarising`, and `failed` to better support background processing and progress tracking
 
 ## Conclusion
 
