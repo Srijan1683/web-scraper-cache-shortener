@@ -11,6 +11,9 @@ import httpx
 import asyncio
 from markdownify import markdownify as md
 
+from typing import Literal
+from datetime import datetime, timezone
+
 
 class ScraperError(Exception):
     """Raised when the scraper cannot safely fetch or parse the webpage"""
@@ -119,6 +122,7 @@ async def scrape_website_as_markdown(url:str, timeout:int = DEFAULT_TIMEOUT) -> 
     return convert_html_to_markdown(response.text)
 
 async def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any]:
+    created_at = datetime.now(timezone.utc)
     
     response = await fetch_webpage(url,timeout=timeout)
     content_type = response.headers.get("Content-Type","")
@@ -127,10 +131,14 @@ async def scrape_website(url:str, timeout:int = DEFAULT_TIMEOUT) -> dict[str,Any
         raise ScraperError("The URL did not return HTML page")
     
     scraped_data = parse_html(response.text)
-    
+    completed_at = datetime.now(timezone.utc)
+   
     scraped_data.update(
         {"url": str(response.url),
          "status_code": response.status_code,
+         "status": "crawling",
+         "created_at": created_at,
+         "completed_at": completed_at,
          "content_length": len(response.content),
         }
     )
