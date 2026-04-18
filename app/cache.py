@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import os
 import time
+from typing import TYPE_CHECKING
 
 from app.models import ScrapeResult
+
+if TYPE_CHECKING:
+    from redis import Redis as RedisClient
+else:
+    RedisClient = object
 
 try:
     from redis import Redis
@@ -24,7 +30,7 @@ def _purge_expired_memory_entries() -> None:
         _memory_cache.pop(url, None)
 
 
-def _get_redis_client() -> Redis | None:
+def _get_redis_client() -> RedisClient | None:
     if Redis is None or not REDIS_URL:
         return None
 
