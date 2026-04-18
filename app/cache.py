@@ -5,6 +5,8 @@ import time
 from typing import TYPE_CHECKING
 
 from app.models import ScrapeResult
+from app.scraper import scrape_website_as_markdown
+from app.config import DEFAULT_TIMEOUT
 
 if TYPE_CHECKING:
     from redis import Redis as RedisClient
@@ -102,3 +104,14 @@ def get_all_cached_urls() -> list[str]:
 
     _purge_expired_memory_entries()
     return list(_memory_cache.keys())
+
+async def set_markdown_file(url:str, timeout:int = DEFAULT_TIMEOUT) -> None:
+    redis_client = _get_redis_client()
+    markdown_file = await scrape_website_as_markdown(url, timeout= timeout)
+    markdown_key = f"markdown:{url}"
+    
+    if redis_client is not None:
+        redis_client.set(markdown_key, markdown_file, ex= CACHE_TTL)
+        return
+    
+    _memory_cache[markdown_key] = (time.time() + CACHE_TTL, markdown_file)
