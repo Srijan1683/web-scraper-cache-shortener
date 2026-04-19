@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -19,7 +19,7 @@ class ScrapeResponse(BaseModel):
     status_code: int
     status: Literal["queued", "crawling", "ssummarising", "failed"]
     created_at: datetime
-    completed_at: datetime | None = None
+    completed_at: Optional[datetime] = None
     content_length: int
     title: str = ""
     meta_description: str = ""
