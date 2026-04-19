@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from app.models import ScrapeResult
 from app.scraper import scrape_website_as_markdown
@@ -32,14 +32,14 @@ def _purge_expired_memory_entries() -> None:
         _memory_cache.pop(url, None)
 
 
-def _get_redis_client() -> RedisClient | None:
+def _get_redis_client() -> Optional[RedisClient]:
     if Redis is None or not REDIS_URL:
         return None
 
     return Redis.from_url(REDIS_URL, decode_responses=True)
 
 
-def get_cached_result(url: str) -> ScrapeResult | None:
+def get_cached_result(url: str) -> Optional[ScrapeResult]:
     redis_client = _get_redis_client()
     if redis_client is not None:
         cached_data = redis_client.get(url)
