@@ -105,13 +105,27 @@ def get_all_cached_urls() -> list[str]:
     _purge_expired_memory_entries()
     return list(_memory_cache.keys())
 
-async def set_markdown_file(url:str, timeout:int = DEFAULT_TIMEOUT) -> None:
+def get_cached_markdown(url: str) -> Optional[str]:
     redis_client = _get_redis_client()
-    markdown_file = await scrape_website_as_markdown(url, timeout= timeout)
     markdown_key = f"markdown:{url}"
-    
+
     if redis_client is not None:
-        redis_client.set(markdown_key, markdown_file, ex= CACHE_TTL)
+        return redis_client.get(markdown_key)
+
+    _purge_expired_memory_entries()
+    cached_entry = _memory_cache.get(markdown_key)
+    if cached_entry is None:
+        return None
+
+    _, markdown_content = cached_entry
+    return markdown_content
+
+def set_cached_markdown(url: str, markdown_content: str) -> None:
+    redis_client = _get_redis_client()
+    markdown_key = f"markdown:{url}"
+
+    if redis_client is not None:
+        redis_client.set(markdown_key, markdown_content, ex=CACHE_TTL)
         return
-    
-    _memory_cache[markdown_key] = (time.time() + CACHE_TTL, markdown_file)
+
+    _memory_cache[markdown_key] = (time.time() + CACHE_TTL, markdown_content)
