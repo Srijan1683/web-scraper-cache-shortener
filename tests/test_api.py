@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -20,6 +22,9 @@ def test_scrape_endpoint_returns_scraped_data(monkeypatch):
         return {
             "url": url,
             "status_code": 200,
+            "status": "crawling",
+            "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            "completed_at": datetime(2026, 1, 1, 0, 0, 5, tzinfo=timezone.utc),
             "content_length": 100,
             "title": "Example Domain",
             "meta_description": "Example description",
@@ -42,6 +47,9 @@ def test_scrape_endpoint_returns_scraped_data(monkeypatch):
         "data": {
             "url": "https://example.com",
             "status_code": 200,
+            "status": "crawling",
+            "created_at": "2026-01-01T00:00:00Z",
+            "completed_at": "2026-01-01T00:00:05Z",
             "content_length": 100,
             "title": "Example Domain",
             "meta_description": "Example description",
@@ -54,11 +62,57 @@ def test_scrape_endpoint_returns_scraped_data(monkeypatch):
 
 def test_scrape_endpoint_returns_400_for_scraper_error(monkeypatch):
     async def fake_scrape_website(url):
-        raise ScraperError("Only HTTPS URLs are allowed.")
+        raise ScraperError("Only HTTPS URLs are allowed")
 
     monkeypatch.setattr("app.main.scrape_website", fake_scrape_website)
 
     response = client.post("/scrape", json={"url": "http://example.com"})
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "Only HTTPS URLs are allowed."}
+    assert response.json() == {"detail": "Only HTTPS URLs are allowed"}
+
+
+def test_scrape_markdown_returns_cached_markdown_without_scraping(monkeypatch):
+    def fake_get_cached_markdown(url):
+        assert url == "https://example.com"
+        return "# Cached markdown"
+
+    async def fake_scrape_website_as_markdown(url):
+        raise AssertionError("scrape_website_as_markdown should not be called on cache hit")
+
+    monkeypatch.setattr("app.main.get_cached_markdown", fake_get_cached_markdown)
+    monkeypatch.setattr("app.main.scrape_website_as_markdown", fake_scrape_website_as_markdown)
+    monkeypatch.setattr("app.main.generate_short_code", lambda url: "abc123")
+
+    response = client.post("/scrape/markdown", json={"url": "https://example.com"})
+
+    assert response.status_code == 200
+    assert response.text == "# Cached markdown"
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert response.headers["content-disposition"] == 'attachment; filename="abc123.md"'
+
+
+def test_scrape_markdown_stores_markdown_after_scrape(monkeypatch):
+    calls: list[tuple[str, str]] = []
+
+    def fake_get_cached_markdown(url):
+        assert url == "https://example.com"
+        return None
+
+    async def fake_scrape_website_as_markdown(url):
+        assert url == "https://example.com"
+        return "# Fresh markdown"
+
+    def fake_set_cached_markdown(url, markdown_content):
+        calls.append((url, markdown_content))
+
+    monkeypatch.setattr("app.main.get_cached_markdown", fake_get_cached_markdown)
+    monkeypatch.setattr("app.main.scrape_website_as_markdown", fake_scrape_website_as_markdown)
+    monkeypatch.setattr("app.main.set_cached_markdown", fake_set_cached_markdown)
+    monkeypatch.setattr("app.main.generate_short_code", lambda url: "abc123")
+
+    response = client.post("/scrape/markdown", json={"url": "https://example.com"})
+
+    assert response.status_code == 200
+    assert response.text == "# Fresh markdown"
+    assert calls == [("https://example.com", "# Fresh markdown")]
