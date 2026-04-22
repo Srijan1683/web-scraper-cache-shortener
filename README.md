@@ -2,9 +2,9 @@
 
 ## Overview
 
-This project is a Python backend application that accepts a URL, scrapes key webpage information, generates a short code for the URL, and stores the result in an in-memory cache for faster repeated access.
+This project is a Python backend application that accepts a URL, scrapes key webpage information, generates a short code for the URL, and stores results in a cache for faster repeated access. When `REDIS_URL` is configured and the Redis client is installed, the app uses Redis with a TTL; otherwise it falls back to an in-memory cache.
 
-The system is built with FastAPI and is structured into separate modules for scraping, caching, short-code generation, models, and tests. The application exposes an API endpoint that validates input, fetches webpage content, extracts structured HTML data, and returns a response containing both the scraped result and a generated short code.
+The system is built with FastAPI and is structured into separate modules for scraping, caching, short-code generation, models, and tests. The application exposes API endpoints that validate input, fetch webpage content, extract structured HTML data for preview, and return downloadable markdown exports.
 
 ## Objective
 
@@ -16,7 +16,7 @@ The main areas of focus were:
 - validating and handling URLs
 - parsing HTML content with Beautiful Soup
 - building API endpoints with FastAPI
-- implementing an in-memory cache
+- implementing cache-backed preview and markdown reuse
 - generating deterministic short codes for URLs
 - writing tests for the scraper, cache, API, and shortener modules
 
@@ -26,7 +26,7 @@ The current roadmap also includes AI-powered summarisation for scraped content, 
 
 ## What the Project Does
 
-The application accepts a URL through a `POST /scrape` API endpoint.
+The application accepts a URL through a `POST /scrape` API endpoint for preview and `POST /scrape/markdown` for markdown export.
 
 It then performs the following steps:
 
@@ -43,6 +43,15 @@ It then performs the following steps:
 6. generates a short code for the URL
 7. stores the final result in cache
 8. returns the response as structured JSON
+
+For markdown export, the application:
+
+1. validates the URL
+2. checks whether markdown for that URL already exists in cache
+3. if cached, returns the cached markdown file
+4. if not cached, fetches the webpage and converts it to markdown
+5. stores the generated markdown in cache
+6. returns the markdown as a downloadable `.md` attachment
 
 ## Example Request
 
@@ -77,6 +86,12 @@ Start the FastAPI server with:
 
 ```bash
 PYTHONPATH=. uvicorn app.main:app --reload
+```
+
+Optional environment:
+
+```bash
+export REDIS_URL=redis://localhost:6379/0
 ```
 
 If you want a shorter command without manually activating the virtual environment, use:
@@ -133,7 +148,6 @@ Planned improvements for the next version of this project include:
 
 - converting the scraping and request-handling flow to an asynchronous implementation for better scalability
 - expanding the service further as a REST API with additional endpoints and cleaner resource-oriented design
-- adding TTL-based cache expiration so cached results can automatically expire after a defined period
 - adding an AI summarisation step for generated markdown files so users can receive concise page summaries alongside raw scraped content
 - introducing scrape lifecycle states such as `queued`, `crawling`, `summarising`, and `failed` to better support background processing and progress tracking
 

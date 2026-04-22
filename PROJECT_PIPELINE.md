@@ -6,11 +6,11 @@ This document reflects what the project currently does and shows how the planned
 
 - FastAPI serves the frontend from `/`.
 - `POST /scrape` returns structured JSON for preview and uses cache.
-- `POST /scrape/markdown` fetches the page again, converts HTML to markdown, and returns a downloadable `.md` file.
+- `POST /scrape/markdown` reads cached markdown first, otherwise fetches the page, converts HTML to markdown, stores it in cache, and returns a downloadable `.md` file.
 - URL validation only allows non-empty `https://` URLs.
 - Fetching is done with `httpx.AsyncClient(...)` and HTML parsing is done with BeautifulSoup.
 - Structured scrape results are cached in memory or Redis with a TTL.
-- Markdown generation exists today, and there is an unused helper for storing markdown in cache that can support the next step.
+- Markdown content is cached in memory or Redis with a TTL using a dedicated `markdown:{url}` cache key.
 
 ## Planned AI Summarisation Concept
 
@@ -54,14 +54,17 @@ flowchart TD
     subgraph MarkdownPipeline["Current markdown export pipeline"]
         MarkdownRoute --> MarkdownValidate["Validate URL"]
         MarkdownValidate -->|invalid URL| ClientError
-        MarkdownValidate --> MarkdownFetch["fetch_webpage()<br/>httpx AsyncClient"]
+        MarkdownValidate --> MarkdownCache{"Markdown cache hit?"}
+        MarkdownCache -->|Yes| MarkdownCached["Return cached markdown"]
+        MarkdownCache -->|No| MarkdownFetch["fetch_webpage()<br/>httpx AsyncClient"]
         MarkdownFetch -->|timeout or HTTP error| ClientError
         MarkdownFetch --> MarkdownHtml{"Response content is HTML?"}
         MarkdownHtml -->|No| ClientError
         MarkdownHtml --> MarkdownConvert["convert_html_to_markdown()<br/>markdownify"]
-        MarkdownConvert --> MarkdownCode["generate_short_code(url)"]
+        MarkdownConvert --> MarkdownStore["Store markdown<br/>in memory cache or Redis TTL"]
+        MarkdownStore --> MarkdownCached
+        MarkdownCached --> MarkdownCode["generate_short_code(url)"]
         MarkdownCode --> MarkdownResponse["Return text/markdown attachment<br/>filename = short_code.md"]
-        MarkdownConvert -. available helper, not wired end-to-end today .-> MarkdownCache["Optional markdown cache<br/>set_markdown_file()"]
     end
 
     MarkdownResponse --> MarkdownDownload["Browser downloads markdown file"]
@@ -87,9 +90,8 @@ flowchart TD
 ## Notes For Implementation
 
 - The current UI already follows a preview-first flow: preview JSON first, then download markdown.
-- `POST /scrape` currently uses cache, but `POST /scrape/markdown` does not yet read from cache.
-- `app/cache.py` already contains `set_markdown_file(...)`, which is a good starting point for adding markdown cache support.
-- A clean future extension is to add markdown read/write cache first.
-- After that, add summary read/write cache.
+- `POST /scrape` and `POST /scrape/markdown` both use the cache layer now.
+- Markdown cache entries are stored separately from preview JSON entries.
+- A clean future extension is to add summary read/write cache next.
 - Call OpenAI only after markdown is loaded from a fresh scrape or cache.
 - Return both the markdown metadata and the generated summary.
