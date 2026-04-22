@@ -9,7 +9,7 @@ from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeRespons
 
 from app.scraper import ScraperError, scrape_website, scrape_website_as_markdown
 from app.shortener import generate_short_code
-from app.cache import get_cached_result, set_cached_result
+from app.cache import get_cached_result, set_cached_result, get_cached_markdown, set_cached_markdown
 from app.config import APP_TITLE, APP_VERSION
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
@@ -71,7 +71,11 @@ async def scrape(request: ScrapeRequest) -> ScrapeResult:
 @app.post("/scrape/markdown", responses={400: {"model": ErrorResponse}})
 async def scrape_markdown(request: ScrapeRequest) -> Response:
     try:
-        markdown_content = await scrape_website_as_markdown(request.url)
+        markdown_content = get_cached_markdown(request.url)
+        if markdown_content is None:
+            markdown_content = await scrape_website_as_markdown(request.url)
+            set_cached_markdown(request.url, markdown_content)
+
         short_code = generate_short_code(request.url)
 
         return Response(
@@ -84,3 +88,4 @@ async def scrape_markdown(request: ScrapeRequest) -> Response:
 
     except ScraperError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
