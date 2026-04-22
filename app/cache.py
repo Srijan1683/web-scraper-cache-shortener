@@ -5,7 +5,6 @@ import time
 from typing import Optional, TYPE_CHECKING
 
 from app.models import ScrapeResult
-from app.scraper import scrape_website_as_markdown
 from app.config import DEFAULT_TIMEOUT
 
 if TYPE_CHECKING:
