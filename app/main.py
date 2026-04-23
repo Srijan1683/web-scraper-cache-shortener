@@ -1,17 +1,23 @@
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
-from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
-from datetime import datetime, timezone
 
+from app.cache import (
+    get_cached_markdown,
+    get_cached_result,
+    increment_result_clicks,
+    set_cached_markdown,
+    set_cached_result,
+)
+from app.config import APP_TITLE, APP_VERSION
+from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
 from app.scraper import ScraperError, scrape_website, scrape_website_as_markdown
 from app.shortener import generate_short_code
-from app.cache import get_cached_result, set_cached_result, get_cached_markdown, set_cached_markdown
-from app.config import APP_TITLE, APP_VERSION
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -53,17 +59,19 @@ async def scrape(request: ScrapeRequest) -> ScrapeResult:
         url = str(request.url)
         cached_result = get_cached_result(url)
         if cached_result is not None:
-            return cached_result
+            incremented_result = increment_result_clicks(url)
+            return incremented_result or cached_result
         
         scraped_data = await scrape_website(url)
         short_code = generate_short_code(url)
+        scraped_response = ScrapeResponse(**scraped_data)
          
         result = ScrapeResult(
             short_code=short_code,
             original_url=request.url,
             clicks=0,
-            created_at=datetime.now(timezone.utc),
-            data=ScrapeResponse(**scraped_data),
+            created_at=scraped_response.created_at,
+            data=scraped_response,
         )
         set_cached_result(url, result)
 
