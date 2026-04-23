@@ -5,7 +5,6 @@ import time
 from typing import Optional, TYPE_CHECKING
 
 from app.models import ScrapeResult
-from app.config import DEFAULT_TIMEOUT
 
 if TYPE_CHECKING:
     from redis import Redis as RedisClient
@@ -63,6 +62,16 @@ def set_cached_result(url: str, data: ScrapeResult) -> None:
         return
 
     _memory_cache[url] = (time.time() + CACHE_TTL, serialized_data)
+
+
+def increment_result_clicks(url: str) -> Optional[ScrapeResult]:
+    cached_result = get_cached_result(url)
+    if cached_result is None:
+        return None
+
+    updated_result = cached_result.model_copy(update={"clicks": cached_result.clicks + 1})
+    set_cached_result(url, updated_result)
+    return updated_result
 
 
 def has_cached_result(url: str) -> bool:
