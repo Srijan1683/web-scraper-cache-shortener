@@ -8,6 +8,7 @@ from app.cache import (
     get_cached_markdown,
     get_cached_result,
     has_cached_result,
+    increment_result_clicks,
     set_cached_markdown,
     set_cached_result,
 )
@@ -17,6 +18,9 @@ from app.models import ScrapeResponse, ScrapeResult
 def build_scrape_result(url: str = "https://example.com") -> ScrapeResult:
     return ScrapeResult(
         short_code="abc123",
+        original_url=url,
+        clicks=0,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         data=ScrapeResponse(
             url=url,
             status_code=200,
@@ -101,6 +105,18 @@ def test_get_all_cached_urls_returns_cached_keys():
     result = get_all_cached_urls()
 
     assert result == [url]
+
+
+def test_increment_result_clicks_updates_cached_result():
+    clear_cache()
+    url = "https://example.com"
+    set_cached_result(url, build_scrape_result(url))
+
+    updated_result = increment_result_clicks(url)
+
+    assert updated_result is not None
+    assert updated_result.clicks == 1
+    assert get_cached_result(url).clicks == 1
 
 
 def test_set_cached_markdown_stores_markdown_content():
