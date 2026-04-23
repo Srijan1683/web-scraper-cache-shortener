@@ -38,6 +38,8 @@ def test_scrape_endpoint_returns_scraped_data(monkeypatch):
     def fake_generate_short_code(url):
         return "abc123"
 
+    monkeypatch.setattr("app.main.get_cached_result", lambda url: None)
+    monkeypatch.setattr("app.main.set_cached_result", lambda url, result: None)
     monkeypatch.setattr("app.main.scrape_website", fake_scrape_website)
     monkeypatch.setattr("app.main.generate_short_code", fake_generate_short_code)
 
@@ -50,7 +52,7 @@ def test_scrape_endpoint_returns_scraped_data(monkeypatch):
         "clicks": 0,
         "created_at": "2026-01-01T00:00:00Z",
         "data": {
-            "url": "https://example.com",
+            "url": "https://example.com/",
             "status_code": 200,
             "status": "crawling",
             "created_at": "2026-01-01T00:00:00Z",
@@ -120,7 +122,7 @@ def test_scrape_endpoint_returns_400_for_scraper_error(monkeypatch):
 
 def test_scrape_markdown_returns_cached_markdown_without_scraping(monkeypatch):
     def fake_get_cached_markdown(url):
-        assert url == "https://example.com"
+        assert url == "https://example.com/"
         return "# Cached markdown"
 
     async def fake_scrape_website_as_markdown(url):
@@ -142,11 +144,11 @@ def test_scrape_markdown_stores_markdown_after_scrape(monkeypatch):
     calls: list[tuple[str, str]] = []
 
     def fake_get_cached_markdown(url):
-        assert url == "https://example.com"
+        assert url == "https://example.com/"
         return None
 
     async def fake_scrape_website_as_markdown(url):
-        assert url == "https://example.com"
+        assert url == "https://example.com/"
         return "# Fresh markdown"
 
     def fake_set_cached_markdown(url, markdown_content):
@@ -161,4 +163,4 @@ def test_scrape_markdown_stores_markdown_after_scrape(monkeypatch):
 
     assert response.status_code == 200
     assert response.text == "# Fresh markdown"
-    assert calls == [("https://example.com", "# Fresh markdown")]
+    assert calls == [("https://example.com/", "# Fresh markdown")]
