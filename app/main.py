@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
+from datetime import datetime, timezone
 
 from app.scraper import ScraperError, scrape_website, scrape_website_as_markdown
 from app.shortener import generate_short_code
@@ -49,17 +50,22 @@ def read_ui_script() -> FileResponse:
 @app.post("/scrape", response_model=ScrapeResult, responses={400: {"model": ErrorResponse}})
 async def scrape(request: ScrapeRequest) -> ScrapeResult:
     try:
-        cached_result = get_cached_result(request.url)
+        url = str(request.url)
+        cached_result = get_cached_result(url)
         if cached_result is not None:
             return cached_result
         
-        scraped_data = await scrape_website(request.url)
-        short_code = generate_short_code(request.url)
+        scraped_data = await scrape_website(url)
+        short_code = generate_short_code(url)
+         
         result = ScrapeResult(
             short_code=short_code,
+            original_url=request.url,
+            clicks=0,
+            created_at=datetime.now(timezone.utc),
             data=ScrapeResponse(**scraped_data),
         )
-        set_cached_result(request.url, result)
+        set_cached_result(url, result)
 
         return result
         
@@ -71,12 +77,13 @@ async def scrape(request: ScrapeRequest) -> ScrapeResult:
 @app.post("/scrape/markdown", responses={400: {"model": ErrorResponse}})
 async def scrape_markdown(request: ScrapeRequest) -> Response:
     try:
-        markdown_content = get_cached_markdown(request.url)
+        url = str(request.url)
+        markdown_content = get_cached_markdown(url)
         if markdown_content is None:
-            markdown_content = await scrape_website_as_markdown(request.url)
-            set_cached_markdown(request.url, markdown_content)
+            markdown_content = await scrape_website_as_markdown(url)
+            set_cached_markdown(url, markdown_content)
 
-        short_code = generate_short_code(request.url)
+        short_code = generate_short_code(url)
 
         return Response(
             content=markdown_content,
@@ -88,4 +95,3 @@ async def scrape_markdown(request: ScrapeRequest) -> Response:
 
     except ScraperError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
