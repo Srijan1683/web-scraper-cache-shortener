@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class ErrorResponse(BaseModel):
@@ -11,7 +11,7 @@ class ErrorResponse(BaseModel):
 
 
 class ScrapeRequest(BaseModel):
-    url: str
+    url: HttpUrl
 
 
 class ScrapeResponse(BaseModel):
@@ -30,4 +30,7 @@ class ScrapeResponse(BaseModel):
 
 class ScrapeResult(BaseModel):
     short_code: str
+    original_url: HttpUrl
+    clicks: int = 0
+    created_at: datetime
     data: ScrapeResponse
