@@ -4,7 +4,7 @@
 
 This project is a Python backend application that accepts a URL, scrapes key webpage information, generates a short code for the URL, and stores results in a cache for faster repeated access. When `REDIS_URL` is configured and the Redis client is installed, the app uses Redis with a TTL; otherwise it falls back to an in-memory cache.
 
-The system is built with FastAPI and is structured into separate modules for scraping, caching, short-code generation, models, and tests. The application exposes API endpoints that validate input, fetch webpage content, extract structured HTML data for preview, and return downloadable markdown exports.
+The system is built with FastAPI and is structured into separate modules for scraping, caching, short-code generation, models, and tests. The application exposes API endpoints that validate input, fetch webpage content, extract structured HTML data for preview, return downloadable markdown exports, and reuse cached results across repeated requests.
 
 ## Objective
 
@@ -17,6 +17,7 @@ The main areas of focus were:
 - parsing HTML content with Beautiful Soup
 - building API endpoints with FastAPI
 - implementing cache-backed preview and markdown reuse
+- tracking repeated preview access with cached click counts
 - generating deterministic short codes for URLs
 - writing tests for the scraper, cache, API, and shortener modules
 
@@ -41,7 +42,7 @@ It then performs the following steps:
    - images
    - headings
 6. generates a short code for the URL
-7. stores the final result in cache
+7. stores the final result in cache with the original URL and click metadata
 8. returns the response as structured JSON
 
 For markdown export, the application:
@@ -67,9 +68,15 @@ POST /scrape
 ```json
 {
   "short_code": "a9b9f0",
+  "original_url": "https://example.com/",
+  "clicks": 0,
+  "created_at": "2026-04-25T09:00:00Z",
   "data": {
-    "url": "https://example.com",
+    "url": "https://example.com/",
     "status_code": 200,
+    "status": "crawling",
+    "created_at": "2026-04-25T09:00:00Z",
+    "completed_at": "2026-04-25T09:00:02Z",
     "content_length": 1256,
     "title": "Example Domain",
     "meta_description": "...",
@@ -92,7 +99,10 @@ Optional environment:
 
 ```bash
 export REDIS_URL=redis://localhost:6379/0
+export OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
+
+The OpenRouter summarisation files are scaffolded in `app/openrouter_client.py`, `app/summariser.py`, and `app/summary_models.py`. The summary route is still in progress, so the current production flow remains preview plus markdown export.
 
 If you want a shorter command without manually activating the virtual environment, use:
 
