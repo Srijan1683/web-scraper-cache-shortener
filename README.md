@@ -92,17 +92,19 @@ POST /scrape
 Start the FastAPI server with:
 
 ```bash
-PYTHONPATH=. uvicorn app.main:app --reload
+PYTHONPATH=. python -m uvicorn app.main:app --reload
 ```
 
 Optional environment:
 
 ```bash
 export REDIS_URL=redis://localhost:6379/0
+export OPENROUTER_API_KEY=your_openrouter_api_key
 export OPENROUTER_MODEL=openai/gpt-4o-mini
+export OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 ```
 
-The OpenRouter summarisation files are scaffolded in `app/openrouter_client.py`, `app/summariser.py`, and `app/summary_models.py`. The summary route is still in progress, so the current production flow remains preview plus markdown export.
+The project now includes OpenRouter summarisation scaffolding in `app/openrouter_client.py`, `app/summariser.py`, and `app/summary_models.py`. The summary route is still in progress, so the current production flow remains preview plus markdown export.
 
 If you want a shorter command without manually activating the virtual environment, use:
 
@@ -151,6 +153,8 @@ Run all tests with:
 ```bash
 PYTHONPATH=. pytest tests/ -v
 ```
+
+If you are using the integrated VS Code terminal, make sure your `.env` values are actually available in that shell before running the app or summarisation tests.
 
 ## Future Improvements
 
