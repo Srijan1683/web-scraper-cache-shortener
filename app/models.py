@@ -17,7 +17,7 @@ class ScrapeRequest(BaseModel):
 class ScrapeResponse(BaseModel):
     url: str
     status_code: int
-    status: Literal["queued", "crawling", "ssummarising", "failed"]
+    status: Literal["queued", "crawling", "summarising", "failed"]
     created_at: datetime
     completed_at: Optional[datetime] = None
     content_length: int
