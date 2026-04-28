@@ -1,5 +1,5 @@
 from app.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_MODEL
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 api_key = OPENROUTER_API_KEY
 if not api_key:
@@ -7,7 +7,7 @@ if not api_key:
 
 model_name = OPENROUTER_MODEL
 
-client = OpenAI(
+client = AsyncOpenAI(
     base_url=OPENROUTER_BASE_URL,
     api_key=api_key,
 )
