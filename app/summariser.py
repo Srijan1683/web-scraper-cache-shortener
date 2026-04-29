@@ -4,10 +4,10 @@ import asyncio
 from typing import Literal
 
 import tiktoken
-from pydantic import BaseModel
 
-from app.config import APP_TITLE
+from app.config import APP_TITLE, CHUNK_TOKEN_LIMIT, DIRECT_SUMMARY_TOKEN_LIMIT, OPENROUTER_HTTP_REFERER
 from app.openrouter_client import client, model_name
+from app.summary_models import SummarizationResult, TokenUsage
 
 
 SummaryType = Literal["brief", "detailed"]
@@ -18,20 +18,6 @@ SYSTEM_PROMPT = (
     "Do not invent facts or add information not present in the source. "
     "Preserve important names, numbers, dates, and technical details."
 )
-
-DIRECT_SUMMARY_TOKEN_LIMIT = 6000
-CHUNK_TOKEN_LIMIT = 2500
-
-
-class SummaryResult(BaseModel):
-    summary: str
-    summary_type: SummaryType
-    model: str
-    used_chunking: bool = False
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-
 
 def _tokenizer_model_name() -> str:
     return model_name.split("/", 1)[-1]
@@ -120,10 +106,10 @@ def split_into_chunks(text: str, max_tokens: int = CHUNK_TOKEN_LIMIT) -> list[st
     return chunks
 
 
-async def _request_summary(markdown_text: str, summary_type: SummaryType) -> SummaryResult:
+async def _request_summary(markdown_text: str, summary_type: SummaryType) -> SummarizationResult:
     completion = await client.chat.completions.create(
         extra_headers={
-            "HTTP-Referer": "http://localhost:8000",
+            "HTTP-Referer": OPENROUTER_HTTP_REFERER,
             "X-OpenRouter-Title": APP_TITLE,
         },
         model=model_name,
@@ -151,24 +137,25 @@ async def _request_summary(markdown_text: str, summary_type: SummaryType) -> Sum
     completion_tokens = getattr(usage, "completion_tokens", 0) if usage is not None else 0
     total_tokens = getattr(usage, "total_tokens", 0) if usage is not None else 0
 
-    return SummaryResult(
+    return SummarizationResult(
         summary=summary,
-        summary_type=summary_type,
         model=model_name,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        total_tokens=total_tokens,
+        token_usage=TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        ),
     )
 
 
-async def summarise_chunk(chunk: str, summary_type: SummaryType = "brief") -> SummaryResult:
+async def summarise_chunk(chunk: str, summary_type: SummaryType = "brief") -> SummarizationResult:
     return await _request_summary(chunk, summary_type)
 
 
 async def summarise_markdown(
     markdown_text: str,
     summary_type: SummaryType = "brief",
-) -> SummaryResult:
+) -> SummarizationResult:
     cleaned_markdown = markdown_text.strip()
     if not cleaned_markdown:
         raise ValueError("markdown_text cannot be empty")
@@ -192,12 +179,15 @@ async def summarise_markdown(
 
     final_result = await _request_summary(combined_chunk_summaries, summary_type)
 
-    return SummaryResult(
+    return SummarizationResult(
         summary=final_result.summary,
-        summary_type=summary_type,
         model=model_name,
-        used_chunking=True,
-        prompt_tokens=sum(result.prompt_tokens for result in chunk_results) + final_result.prompt_tokens,
-        completion_tokens=sum(result.completion_tokens for result in chunk_results) + final_result.completion_tokens,
-        total_tokens=sum(result.total_tokens for result in chunk_results) + final_result.total_tokens,
+        token_usage=TokenUsage(
+            prompt_tokens=sum(result.token_usage.prompt_tokens for result in chunk_results)
+            + final_result.token_usage.prompt_tokens,
+            completion_tokens=sum(result.token_usage.completion_tokens for result in chunk_results)
+            + final_result.token_usage.completion_tokens,
+            total_tokens=sum(result.token_usage.total_tokens for result in chunk_results)
+            + final_result.token_usage.total_tokens,
+        ),
     )
