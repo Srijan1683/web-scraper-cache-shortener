@@ -23,7 +23,7 @@ The main areas of focus were:
 
 This project was also intended to strengthen understanding of modular code structure, exception handling, and testing practices in Python.
 
-The current roadmap also includes AI-powered summarisation for scraped content, especially markdown output generated from webpages.
+The project now also includes AI summarisation support for scraped markdown content using the OpenRouter-compatible OpenAI SDK flow.
 
 ## What the Project Does
 
@@ -102,9 +102,10 @@ export REDIS_URL=redis://localhost:6379/0
 export OPENROUTER_API_KEY=your_openrouter_api_key
 export OPENROUTER_MODEL=openai/gpt-4o-mini
 export OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+export OPENROUTER_HTTP_REFERER=https://localhost:8000
 ```
 
-The project now includes OpenRouter summarisation scaffolding in `app/openrouter_client.py`, `app/summariser.py`, and `app/summary_models.py`. The summary route is still in progress, so the current production flow remains preview plus markdown export.
+The project now includes a chunk-aware OpenRouter summariser in `app/summariser.py`, client setup in `app/openrouter_client.py`, and summary request/response models in `app/summary_models.py`. Large markdown payloads are split into token-sized chunks and combined into a final summary.
 
 If you want a shorter command without manually activating the virtual environment, use:
 
@@ -156,13 +157,15 @@ PYTHONPATH=. pytest tests/ -v
 
 If you are using the integrated VS Code terminal, make sure your `.env` values are actually available in that shell before running the app or summarisation tests.
 
+The summariser currently exists at the service layer. If you are still wiring the summary API route, you can test the summarisation logic independently before exposing it through FastAPI.
+
 ## Future Improvements
 
 Planned improvements for the next version of this project include:
 
 - converting the scraping and request-handling flow to an asynchronous implementation for better scalability
 - expanding the service further as a REST API with additional endpoints and cleaner resource-oriented design
-- adding an AI summarisation step for generated markdown files so users can receive concise page summaries alongside raw scraped content
+- exposing the AI summarisation flow through a dedicated FastAPI endpoint
 - introducing scrape lifecycle states such as `queued`, `crawling`, `summarising`, and `failed` to better support background processing and progress tracking
 
 ## Conclusion
