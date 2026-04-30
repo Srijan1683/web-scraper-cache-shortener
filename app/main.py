@@ -18,6 +18,8 @@ from app.config import APP_TITLE, APP_VERSION
 from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
 from app.scraper import ScraperError, scrape_website, scrape_website_as_markdown
 from app.shortener import generate_short_code
+from app.summariser import summarise_markdown
+from app.summary_models import SummarizationRequest, SummarizationResult
 
 app = FastAPI(title= APP_TITLE, version= APP_VERSION)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -102,4 +104,12 @@ async def scrape_markdown(request: ScrapeRequest) -> Response:
         )
 
     except ScraperError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/summarize", response_model=SummarizationResult, responses={400: {"model": ErrorResponse}})
+async def summarize(request: SummarizationRequest) -> SummarizationResult:
+    try:
+        return await summarise_markdown(request.content, request.max_length)
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
