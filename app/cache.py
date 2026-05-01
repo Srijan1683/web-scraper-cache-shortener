@@ -5,6 +5,7 @@ import time
 from typing import Optional, TYPE_CHECKING
 
 from app.models import ScrapeResult
+from app.summary_models import SummarizationResult
 
 if TYPE_CHECKING:
     from redis import Redis as RedisClient
@@ -137,3 +138,34 @@ def set_cached_markdown(url: str, markdown_content: str) -> None:
         return
 
     _memory_cache[markdown_key] = (time.time() + CACHE_TTL, markdown_content)
+
+
+def get_cached_summary(url: str, summary_type: str) -> Optional[SummarizationResult]:
+    redis_client = _get_redis_client()
+    summary_key = f"summary:{summary_type}:{url}"
+
+    if redis_client is not None:
+        cached_data = redis_client.get(summary_key)
+        if cached_data is None:
+            return None
+        return SummarizationResult.model_validate_json(cached_data)
+
+    _purge_expired_memory_entries()
+    cached_entry = _memory_cache.get(summary_key)
+    if cached_entry is None:
+        return None
+
+    _, cached_data = cached_entry
+    return SummarizationResult.model_validate_json(cached_data)
+
+
+def set_cached_summary(url: str, summary_type: str, data: SummarizationResult) -> None:
+    serialized_data = data.model_dump_json()
+    redis_client = _get_redis_client()
+    summary_key = f"summary:{summary_type}:{url}"
+
+    if redis_client is not None:
+        redis_client.set(summary_key, serialized_data, ex=CACHE_TTL)
+        return
+
+    _memory_cache[summary_key] = (time.time() + CACHE_TTL, serialized_data)
