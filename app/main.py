@@ -112,12 +112,20 @@ async def scrape_markdown(request: ScrapeRequest) -> Response:
 @app.post("/summarize", response_model=SummarizationResult, responses={400: {"model": ErrorResponse}})
 async def summarize(request: SummarizationRequest) -> SummarizationResult:
     try:
-        cached_summary = get_cached_summary(request.content, request.max_length)
+        url = str(request.url)
+        cached_summary = get_cached_summary(url, request.max_length)
         if cached_summary is not None:
             return cached_summary
 
-        summary_result = await summarise_markdown(request.content, request.max_length)
-        set_cached_summary(request.content, request.max_length, summary_result)
+        markdown_content = get_cached_markdown(url)
+        if markdown_content is None:
+            markdown_content = await scrape_website_as_markdown(url)
+            set_cached_markdown(url, markdown_content)
+
+        summary_result = await summarise_markdown(markdown_content, request.max_length)
+        set_cached_summary(url, request.max_length, summary_result)
         return summary_result
+    except ScraperError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
