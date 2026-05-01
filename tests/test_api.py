@@ -1,6 +1,9 @@
+import os
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
+
+os.environ.setdefault("OPENROUTER_API_KEY", "test-key")
 
 from app.main import app
 from app.scraper import ScraperError
@@ -182,8 +185,8 @@ def test_scrape_markdown_stores_markdown_after_scrape(monkeypatch):
 def test_summarize_returns_cached_summary_without_calling_summariser(monkeypatch):
     cached_summary = build_summary_result()
 
-    def fake_get_cached_summary(content, summary_type):
-        assert content == "Hello world"
+    def fake_get_cached_summary(url, summary_type):
+        assert url == "https://example.com/"
         assert summary_type == "brief"
         return cached_summary
 
@@ -193,7 +196,7 @@ def test_summarize_returns_cached_summary_without_calling_summariser(monkeypatch
     monkeypatch.setattr("app.main.get_cached_summary", fake_get_cached_summary)
     monkeypatch.setattr("app.main.summarise_markdown", fake_summarise_markdown)
 
-    response = client.post("/summarize", json={"content": "Hello world", "max_length": "brief"})
+    response = client.post("/summarize", json={"url": "https://example.com", "max_length": "brief"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -208,27 +211,42 @@ def test_summarize_returns_cached_summary_without_calling_summariser(monkeypatch
 
 
 def test_summarize_stores_summary_after_generation(monkeypatch):
-    calls: list[tuple[str, str, SummarizationResult]] = []
+    calls: list[tuple[str, str]] = []
+    summary_cache_calls: list[tuple[str, str, SummarizationResult]] = []
     summary_result = build_summary_result()
 
-    def fake_get_cached_summary(content, summary_type):
-        assert content == "Hello world"
+    def fake_get_cached_summary(url, summary_type):
+        assert url == "https://example.com/"
         assert summary_type == "detailed"
         return None
 
+    def fake_get_cached_markdown(url):
+        assert url == "https://example.com/"
+        return None
+
+    async def fake_scrape_website_as_markdown(url):
+        assert url == "https://example.com/"
+        return "# Fresh markdown"
+
+    def fake_set_cached_markdown(url, markdown_content):
+        calls.append((url, markdown_content))
+
     async def fake_summarise_markdown(content, summary_type):
-        assert content == "Hello world"
+        assert content == "# Fresh markdown"
         assert summary_type == "detailed"
         return summary_result
 
-    def fake_set_cached_summary(content, summary_type, result):
-        calls.append((content, summary_type, result))
+    def fake_set_cached_summary(url, summary_type, result):
+        summary_cache_calls.append((url, summary_type, result))
 
     monkeypatch.setattr("app.main.get_cached_summary", fake_get_cached_summary)
+    monkeypatch.setattr("app.main.get_cached_markdown", fake_get_cached_markdown)
+    monkeypatch.setattr("app.main.scrape_website_as_markdown", fake_scrape_website_as_markdown)
+    monkeypatch.setattr("app.main.set_cached_markdown", fake_set_cached_markdown)
     monkeypatch.setattr("app.main.summarise_markdown", fake_summarise_markdown)
     monkeypatch.setattr("app.main.set_cached_summary", fake_set_cached_summary)
 
-    response = client.post("/summarize", json={"content": "Hello world", "max_length": "detailed"})
+    response = client.post("/summarize", json={"url": "https://example.com", "max_length": "detailed"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -240,4 +258,5 @@ def test_summarize_stores_summary_after_generation(monkeypatch):
             "total_tokens": 15,
         },
     }
-    assert calls == [("Hello world", "detailed", summary_result)]
+    assert calls == [("https://example.com/", "# Fresh markdown")]
+    assert summary_cache_calls == [("https://example.com/", "detailed", summary_result)]
