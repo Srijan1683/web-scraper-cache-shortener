@@ -7,12 +7,15 @@ from app.cache import (
     get_cache_size,
     get_cached_markdown,
     get_cached_result,
+    get_cached_summary,
     has_cached_result,
     increment_result_clicks,
     set_cached_markdown,
     set_cached_result,
+    set_cached_summary,
 )
 from app.models import ScrapeResponse, ScrapeResult
+from app.summary_models import SummarizationResult, TokenUsage
 
 
 def build_scrape_result(url: str = "https://example.com") -> ScrapeResult:
@@ -33,6 +36,18 @@ def build_scrape_result(url: str = "https://example.com") -> ScrapeResult:
             links=["https://iana.org/domains/example"],
             images=[],
             headings=["Example Domain"],
+        ),
+    )
+
+
+def build_summary_result() -> SummarizationResult:
+    return SummarizationResult(
+        summary="Example summary",
+        model="openai/gpt-4o-mini",
+        token_usage=TokenUsage(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
         ),
     )
 
@@ -137,3 +152,14 @@ def test_get_cache_size_counts_structured_and_markdown_entries():
     set_cached_markdown(url, "# Example Domain")
 
     assert get_cache_size() == 2
+
+
+def test_set_cached_summary_stores_summary_result():
+    clear_cache()
+    url = "https://example.com"
+    summary_type = "brief"
+    summary_result = build_summary_result()
+
+    set_cached_summary(url, summary_type, summary_result)
+
+    assert get_cached_summary(url, summary_type) == summary_result
