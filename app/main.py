@@ -10,9 +10,11 @@ from fastapi.staticfiles import StaticFiles
 from app.cache import (
     get_cached_markdown,
     get_cached_result,
+    get_cached_summary,
     increment_result_clicks,
     set_cached_markdown,
     set_cached_result,
+    set_cached_summary,
 )
 from app.config import APP_TITLE, APP_VERSION
 from app.models import ErrorResponse, ScrapeRequest, ScrapeResult, ScrapeResponse
@@ -110,6 +112,12 @@ async def scrape_markdown(request: ScrapeRequest) -> Response:
 @app.post("/summarize", response_model=SummarizationResult, responses={400: {"model": ErrorResponse}})
 async def summarize(request: SummarizationRequest) -> SummarizationResult:
     try:
-        return await summarise_markdown(request.content, request.max_length)
+        cached_summary = get_cached_summary(request.content, request.max_length)
+        if cached_summary is not None:
+            return cached_summary
+
+        summary_result = await summarise_markdown(request.content, request.max_length)
+        set_cached_summary(request.content, request.max_length, summary_result)
+        return summary_result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
