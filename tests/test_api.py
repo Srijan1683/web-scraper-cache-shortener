@@ -4,9 +4,22 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.scraper import ScraperError
+from app.summary_models import SummarizationResult, TokenUsage
 
 
 client = TestClient(app)
+
+
+def build_summary_result() -> SummarizationResult:
+    return SummarizationResult(
+        summary="Example summary",
+        model="openai/gpt-4o-mini",
+        token_usage=TokenUsage(
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        ),
+    )
 
 
 def test_root_serves_frontend():
@@ -164,3 +177,67 @@ def test_scrape_markdown_stores_markdown_after_scrape(monkeypatch):
     assert response.status_code == 200
     assert response.text == "# Fresh markdown"
     assert calls == [("https://example.com/", "# Fresh markdown")]
+
+
+def test_summarize_returns_cached_summary_without_calling_summariser(monkeypatch):
+    cached_summary = build_summary_result()
+
+    def fake_get_cached_summary(content, summary_type):
+        assert content == "Hello world"
+        assert summary_type == "brief"
+        return cached_summary
+
+    async def fake_summarise_markdown(content, summary_type):
+        raise AssertionError("summarise_markdown should not be called on cache hit")
+
+    monkeypatch.setattr("app.main.get_cached_summary", fake_get_cached_summary)
+    monkeypatch.setattr("app.main.summarise_markdown", fake_summarise_markdown)
+
+    response = client.post("/summarize", json={"content": "Hello world", "max_length": "brief"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "summary": "Example summary",
+        "model": "openai/gpt-4o-mini",
+        "token_usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "total_tokens": 15,
+        },
+    }
+
+
+def test_summarize_stores_summary_after_generation(monkeypatch):
+    calls: list[tuple[str, str, SummarizationResult]] = []
+    summary_result = build_summary_result()
+
+    def fake_get_cached_summary(content, summary_type):
+        assert content == "Hello world"
+        assert summary_type == "detailed"
+        return None
+
+    async def fake_summarise_markdown(content, summary_type):
+        assert content == "Hello world"
+        assert summary_type == "detailed"
+        return summary_result
+
+    def fake_set_cached_summary(content, summary_type, result):
+        calls.append((content, summary_type, result))
+
+    monkeypatch.setattr("app.main.get_cached_summary", fake_get_cached_summary)
+    monkeypatch.setattr("app.main.summarise_markdown", fake_summarise_markdown)
+    monkeypatch.setattr("app.main.set_cached_summary", fake_set_cached_summary)
+
+    response = client.post("/summarize", json={"content": "Hello world", "max_length": "detailed"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "summary": "Example summary",
+        "model": "openai/gpt-4o-mini",
+        "token_usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "total_tokens": 15,
+        },
+    }
+    assert calls == [("Hello world", "detailed", summary_result)]
