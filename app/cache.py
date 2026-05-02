@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 import time
+from datetime import datetime, timezone
 from typing import Optional, TYPE_CHECKING
 
-from app.models import ScrapeResult
+from app.models import ScrapeJobResponse, ScrapeResult, ShortUrlStats
 from app.summary_models import SummarizationResult
 
 if TYPE_CHECKING:
@@ -36,6 +37,19 @@ def _get_redis_client() -> Optional[RedisClient]:
         return None
 
     return Redis.from_url(REDIS_URL, decode_responses=True)
+
+
+def get_redis_status() -> str:
+    redis_client = _get_redis_client()
+    if redis_client is None:
+        return "disconnected"
+
+    try:
+        redis_client.ping()
+    except Exception:
+        return "disconnected"
+
+    return "connected"
 
 
 def get_cached_result(url: str) -> Optional[ScrapeResult]:
@@ -140,6 +154,17 @@ def set_cached_markdown(url: str, markdown_content: str) -> None:
     _memory_cache[markdown_key] = (time.time() + CACHE_TTL, markdown_content)
 
 
+def delete_cached_markdown(url: str) -> None:
+    redis_client = _get_redis_client()
+    markdown_key = f"markdown:{url}"
+
+    if redis_client is not None:
+        redis_client.delete(markdown_key)
+        return
+
+    _memory_cache.pop(markdown_key, None)
+
+
 def get_cached_summary(url: str, summary_type: str) -> Optional[SummarizationResult]:
     redis_client = _get_redis_client()
     summary_key = f"summary:{summary_type}:{url}"
@@ -169,3 +194,151 @@ def set_cached_summary(url: str, summary_type: str, data: SummarizationResult) -
         return
 
     _memory_cache[summary_key] = (time.time() + CACHE_TTL, serialized_data)
+
+
+def delete_cached_summary(url: str, summary_type: str) -> None:
+    redis_client = _get_redis_client()
+    summary_key = f"summary:{summary_type}:{url}"
+
+    if redis_client is not None:
+        redis_client.delete(summary_key)
+        return
+
+    _memory_cache.pop(summary_key, None)
+
+
+def get_cached_job(job_id: str) -> Optional[ScrapeJobResponse]:
+    redis_client = _get_redis_client()
+    job_key = f"job:{job_id}"
+
+    if redis_client is not None:
+        cached_data = redis_client.get(job_key)
+        if cached_data is None:
+            return None
+        return ScrapeJobResponse.model_validate_json(cached_data)
+
+    _purge_expired_memory_entries()
+    cached_entry = _memory_cache.get(job_key)
+    if cached_entry is None:
+        return None
+
+    _, cached_data = cached_entry
+    return ScrapeJobResponse.model_validate_json(cached_data)
+
+
+def set_cached_job(job_id: str, data: ScrapeJobResponse) -> None:
+    serialized_data = data.model_dump_json()
+    redis_client = _get_redis_client()
+    job_key = f"job:{job_id}"
+
+    if redis_client is not None:
+        redis_client.set(job_key, serialized_data, ex=CACHE_TTL)
+        return
+
+    _memory_cache[job_key] = (time.time() + CACHE_TTL, serialized_data)
+
+
+def delete_cached_job(job_id: str) -> None:
+    redis_client = _get_redis_client()
+    job_key = f"job:{job_id}"
+
+    if redis_client is not None:
+        redis_client.delete(job_key)
+        return
+
+    _memory_cache.pop(job_key, None)
+
+
+def get_job_id_for_url(url: str, summary_type: str) -> Optional[str]:
+    redis_client = _get_redis_client()
+    job_lookup_key = f"job-map:{summary_type}:{url}"
+
+    if redis_client is not None:
+        return redis_client.get(job_lookup_key)
+
+    _purge_expired_memory_entries()
+    cached_entry = _memory_cache.get(job_lookup_key)
+    if cached_entry is None:
+        return None
+
+    _, job_id = cached_entry
+    return job_id
+
+
+def set_job_id_for_url(url: str, summary_type: str, job_id: str) -> None:
+    redis_client = _get_redis_client()
+    job_lookup_key = f"job-map:{summary_type}:{url}"
+
+    if redis_client is not None:
+        redis_client.set(job_lookup_key, job_id, ex=CACHE_TTL)
+        return
+
+    _memory_cache[job_lookup_key] = (time.time() + CACHE_TTL, job_id)
+
+
+def delete_job_id_for_url(url: str, summary_type: str) -> None:
+    redis_client = _get_redis_client()
+    job_lookup_key = f"job-map:{summary_type}:{url}"
+
+    if redis_client is not None:
+        redis_client.delete(job_lookup_key)
+        return
+
+    _memory_cache.pop(job_lookup_key, None)
+
+
+def get_short_url(code: str) -> Optional[ShortUrlStats]:
+    redis_client = _get_redis_client()
+    short_key = f"short:{code}"
+
+    if redis_client is not None:
+        cached_data = redis_client.get(short_key)
+        if cached_data is None:
+            return None
+        return ShortUrlStats.model_validate_json(cached_data)
+
+    _purge_expired_memory_entries()
+    cached_entry = _memory_cache.get(short_key)
+    if cached_entry is None:
+        return None
+
+    _, cached_data = cached_entry
+    return ShortUrlStats.model_validate_json(cached_data)
+
+
+def set_short_url(code: str, data: ShortUrlStats) -> None:
+    serialized_data = data.model_dump_json()
+    redis_client = _get_redis_client()
+    short_key = f"short:{code}"
+
+    if redis_client is not None:
+        redis_client.set(short_key, serialized_data, ex=CACHE_TTL)
+        return
+
+    _memory_cache[short_key] = (time.time() + CACHE_TTL, serialized_data)
+
+
+def increment_short_url_clicks(code: str) -> Optional[ShortUrlStats]:
+    cached_short_url = get_short_url(code)
+    if cached_short_url is None:
+        return None
+
+    updated_short_url = cached_short_url.model_copy(
+        update={
+            "clicks": cached_short_url.clicks + 1,
+            "last_accessed_at": datetime.now(timezone.utc),
+        }
+    )
+    set_short_url(code, updated_short_url)
+    return updated_short_url
+
+
+def delete_short_url(code: str) -> None:
+    redis_client = _get_redis_client()
+    short_key = f"short:{code}"
+
+    if redis_client is not None:
+        redis_client.delete(short_key)
+        return
+
+    _memory_cache.pop(short_key, None)
