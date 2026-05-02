@@ -5,6 +5,12 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
+from app.summary_models import SummarizationResult
+
+
+SummaryType = Literal["brief", "detailed"]
+JobStatus = Literal["queued", "crawling", "summarising", "completed", "failed"]
+
 
 class ErrorResponse(BaseModel):
     detail: str
@@ -12,6 +18,7 @@ class ErrorResponse(BaseModel):
 
 class ScrapeRequest(BaseModel):
     url: HttpUrl
+    summary_type: SummaryType = "brief"
 
 
 class ScrapeResponse(BaseModel):
@@ -34,3 +41,40 @@ class ScrapeResult(BaseModel):
     clicks: int = 0
     created_at: datetime
     data: ScrapeResponse
+
+
+class ScrapeJobResponse(BaseModel):
+    job_id: str
+    original_url: HttpUrl
+    summary_type: SummaryType = "brief"
+    status: JobStatus
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    short_code: Optional[str] = None
+    result: Optional[ScrapeResult] = None
+    summary: Optional[SummarizationResult] = None
+    error: Optional[str] = None
+
+
+class ShortenRequest(BaseModel):
+    url: HttpUrl
+
+
+class ShortenResponse(BaseModel):
+    code: str
+    original_url: HttpUrl
+    short_url: str
+    created_at: datetime
+
+
+class ShortUrlStats(BaseModel):
+    code: str
+    original_url: HttpUrl
+    clicks: int = 0
+    created_at: datetime
+    last_accessed_at: Optional[datetime] = None
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok"]
+    redis: Literal["connected", "disconnected"]
