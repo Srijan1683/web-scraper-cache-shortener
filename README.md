@@ -27,7 +27,7 @@ The project now also includes AI summarisation support for scraped markdown cont
 
 ## What the Project Does
 
-The application accepts a URL through a `POST /scrape` API endpoint for preview and `POST /scrape/markdown` for markdown export.
+The application accepts a URL through a `POST /scrape` API endpoint for preview, `POST /scrape/markdown` for markdown export, and `POST /summarize` for AI-generated summaries of cached or freshly generated markdown.
 
 It then performs the following steps:
 
@@ -53,6 +53,17 @@ For markdown export, the application:
 4. if not cached, fetches the webpage and converts it to markdown
 5. stores the generated markdown in cache
 6. returns the markdown as a downloadable `.md` attachment
+
+For summarization, the application:
+
+1. accepts a URL and summary type through `POST /summarize`
+2. checks whether a summary already exists in cache for that URL and summary type
+3. if cached, returns the cached summary
+4. if not cached, checks whether markdown for that URL already exists in cache
+5. if markdown is missing, fetches the page and generates markdown first
+6. summarises the markdown using the OpenRouter-compatible OpenAI SDK flow
+7. stores the summary in cache with the same TTL strategy as the rest of the app
+8. returns the summary together with token-usage metadata
 
 ## Example Request
 
@@ -87,6 +98,30 @@ POST /scrape
 }
 ```
 
+## Example Summary Request
+
+```json
+POST /summarize
+{
+  "url": "https://example.com",
+  "max_length": "brief"
+}
+```
+
+## Example Summary Response
+
+```json
+{
+  "summary": "Example Domain is a simple placeholder page used for illustrative examples. It explains that the domain may be used in documentation and without coordination.",
+  "model": "openai/gpt-4o-mini",
+  "token_usage": {
+    "prompt_tokens": 120,
+    "completion_tokens": 32,
+    "total_tokens": 152
+  }
+}
+```
+
 ## Running the Application
 
 Start the FastAPI server with:
@@ -105,7 +140,7 @@ export OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 export OPENROUTER_HTTP_REFERER=https://localhost:8000
 ```
 
-The project now includes a chunk-aware OpenRouter summariser in `app/summariser.py`, client setup in `app/openrouter_client.py`, and summary request/response models in `app/summary_models.py`. Large markdown payloads are split into token-sized chunks and combined into a final summary.
+The project now includes a chunk-aware OpenRouter summariser in `app/summariser.py`, client setup in `app/openrouter_client.py`, summary request/response models in `app/summary_models.py`, and a URL-based summary endpoint in `app/main.py`. Large markdown payloads are split into token-sized chunks and combined into a final summary when they exceed the direct summarisation limit.
 
 If you want a shorter command without manually activating the virtual environment, use:
 
@@ -157,15 +192,13 @@ PYTHONPATH=. pytest tests/ -v
 
 If you are using the integrated VS Code terminal, make sure your `.env` values are actually available in that shell before running the app or summarisation tests.
 
-The summariser currently exists at the service layer. If you are still wiring the summary API route, you can test the summarisation logic independently before exposing it through FastAPI.
-
 ## Future Improvements
 
 Planned improvements for the next version of this project include:
 
 - converting the scraping and request-handling flow to an asynchronous implementation for better scalability
 - expanding the service further as a REST API with additional endpoints and cleaner resource-oriented design
-- exposing the AI summarisation flow through a dedicated FastAPI endpoint
+- automatically triggering summarisation as part of the markdown-generation flow when that behavior is desired
 - introducing scrape lifecycle states such as `queued`, `crawling`, `summarising`, and `failed` to better support background processing and progress tracking
 
 ## Conclusion
