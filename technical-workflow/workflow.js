@@ -9,159 +9,137 @@ const statusTitle = document.querySelector("#status-title");
 const statusText = document.querySelector("#status-text");
 
 const connectors = [
-  { id: "p-request-p-validate", from: "p-request", to: "p-validate" },
-  { id: "p-validate-p-cache", from: "p-validate", to: "p-cache" },
-  { id: "p-cache-p-fetch", from: "p-cache", to: "p-fetch" },
-  { id: "p-fetch-p-html", from: "p-fetch", to: "p-html" },
-  { id: "p-html-p-parse", from: "p-html", to: "p-parse" },
-  { id: "p-parse-p-extract", from: "p-parse", to: "p-extract" },
-  { id: "p-extract-p-code", from: "p-extract", to: "p-code" },
-  { id: "p-code-p-build", from: "p-code", to: "p-build" },
-  { id: "p-build-p-store", from: "p-build", to: "p-store" },
-  { id: "p-store-p-response", from: "p-store", to: "p-response" },
-  { id: "p-response-p-render", from: "p-response", to: "p-render" },
-  { id: "p-render-m-request", from: "p-render", to: "m-request", dashed: true },
-  { id: "p-cache-p-cached", from: "p-cache", to: "p-cached" },
-  { id: "p-cached-p-cached-render", from: "p-cached", to: "p-cached-render" },
-  { id: "p-validate-p-error", from: "p-validate", to: "p-error" },
-  { id: "p-fetch-p-error", from: "p-fetch", to: "p-error" },
-  { id: "p-html-p-error", from: "p-html", to: "p-error" },
-  { id: "m-request-m-validate", from: "m-request", to: "m-validate" },
-  { id: "m-validate-m-fetch", from: "m-validate", to: "m-fetch" },
-  { id: "m-fetch-m-html", from: "m-fetch", to: "m-html" },
-  { id: "m-html-m-convert", from: "m-html", to: "m-convert" },
-  { id: "m-convert-m-cache", from: "m-convert", to: "m-cache", dashed: true },
-  { id: "m-cache-m-attachment", from: "m-cache", to: "m-attachment" },
-  { id: "m-attachment-m-download", from: "m-attachment", to: "m-download" },
-  { id: "m-cache-s-request", from: "m-cache", to: "s-request", dashed: true },
-  { id: "m-attachment-s-request", from: "m-attachment", to: "s-request", dashed: true },
-  { id: "m-validate-m-error", from: "m-validate", to: "m-error" },
-  { id: "m-fetch-m-error", from: "m-fetch", to: "m-error" },
-  { id: "m-html-m-error", from: "m-html", to: "m-error" },
-  { id: "s-request-s-load", from: "s-request", to: "s-load", dashed: true },
-  { id: "s-load-s-cache", from: "s-load", to: "s-cache", dashed: true },
-  { id: "s-cache-s-openai", from: "s-cache", to: "s-openai", dashed: true },
-  { id: "s-openai-s-store", from: "s-openai", to: "s-store", dashed: true },
-  { id: "s-store-s-summary", from: "s-store", to: "s-summary", dashed: true },
-  { id: "s-cache-s-cached", from: "s-cache", to: "s-cached", dashed: true },
-  { id: "s-cached-s-cached-return", from: "s-cached", to: "s-cached-return", dashed: true },
-  { id: "s-openai-s-error", from: "s-openai", to: "s-error", dashed: true },
+  { id: "j-submit-j-validate", from: "j-submit", to: "j-validate" },
+  { id: "j-validate-j-check", from: "j-validate", to: "j-check" },
+  { id: "j-check-j-cached", from: "j-check", to: "j-cached", state: "cache" },
+  { id: "j-check-j-queue", from: "j-check", to: "j-queue" },
+  { id: "j-queue-j-crawl", from: "j-queue", to: "j-crawl" },
+  { id: "j-crawl-j-result", from: "j-crawl", to: "j-result" },
+  { id: "j-result-j-summary", from: "j-result", to: "j-summary" },
+  { id: "j-summary-j-markdown", from: "j-summary", to: "j-markdown" },
+  { id: "j-markdown-j-summary-cache", from: "j-markdown", to: "j-summary-cache" },
+  { id: "j-summary-cache-j-complete", from: "j-summary-cache", to: "j-complete" },
+  { id: "j-crawl-j-failed", from: "j-crawl", to: "j-failed" },
+  { id: "j-summary-j-failed", from: "j-summary", to: "j-failed" },
+  { id: "j-complete-q-job", from: "j-complete", to: "q-job", state: "cache" },
+  { id: "q-job-q-job-return", from: "q-job", to: "q-job-return" },
+  { id: "j-complete-q-summary", from: "j-complete", to: "q-summary", state: "cache" },
+  { id: "q-summary-q-summary-return", from: "q-summary", to: "q-summary-return" },
+  { id: "j-complete-q-delete", from: "j-complete", to: "q-delete", state: "cache" },
+  { id: "q-delete-q-delete-return", from: "q-delete", to: "q-delete-return" },
+  { id: "j-summary-u-markdown", from: "j-summary", to: "u-markdown", state: "cache" },
+  { id: "u-markdown-u-markdown-return", from: "u-markdown", to: "u-markdown-return" },
+  { id: "u-shorten-u-redirect", from: "u-shorten", to: "u-redirect" },
+  { id: "u-redirect-u-stats", from: "u-redirect", to: "u-stats" },
+  { id: "u-health-u-health-return", from: "u-health", to: "u-health-return" }
 ];
 
 const scenarios = {
-  "preview-miss": {
+  "scrape-queued": {
     title: "POST /scrape",
-    initial: "Simulating the full preview path with a cache miss.",
+    initial: "Tracing the queued job path through scrape, markdown, and summary generation.",
     finalState: "complete",
     steps: [
-      { node: "p-request", note: "Request enters the FastAPI preview route." },
-      { node: "p-validate", connector: "p-request-p-validate", note: "The URL is trimmed and validated for HTTPS." },
-      { node: "p-cache", connector: "p-validate-p-cache", note: "The cache is checked for an existing structured result." },
-      { node: "p-fetch", connector: "p-cache-p-fetch", note: "Cache miss. The backend fetches the page." },
-      { node: "p-html", connector: "p-fetch-p-html", note: "The response content type is verified as HTML." },
-      { node: "p-parse", connector: "p-html-p-parse", note: "HTML is parsed with BeautifulSoup." },
-      { node: "p-extract", connector: "p-parse-p-extract", note: "Title, description, links, images, and headings are extracted." },
-      { node: "p-code", connector: "p-extract-p-code", note: "A deterministic short code is generated." },
-      { node: "p-build", connector: "p-code-p-build", note: "The structured result object is assembled." },
-      { node: "p-store", connector: "p-build-p-store", note: "The result is stored in cache." },
-      { node: "p-response", connector: "p-store-p-response", note: "JSON is returned to the caller." },
-      { node: "p-render", connector: "p-response-p-render", note: "The preview UI renders the final response." },
-    ],
+      { node: "j-submit", note: "A scrape request enters with a URL and summary type." },
+      { node: "j-validate", connector: "j-submit-j-validate", note: "Input passes request validation and scraper URL checks." },
+      { node: "j-check", connector: "j-validate-j-check", note: "The backend checks for an existing job or fully cached assets." },
+      { node: "j-queue", connector: "j-check-j-queue", note: "No complete reuse path is found, so a queued job is created." },
+      { node: "j-crawl", connector: "j-queue-j-crawl", note: "Background processing starts and the job moves into scraping." },
+      { node: "j-result", connector: "j-crawl-j-result", note: "Parsed scrape data is packaged and cached as a scrape result." },
+      { node: "j-summary", connector: "j-result-j-summary", note: "The pipeline moves into summarising after the scrape result is ready." },
+      { node: "j-markdown", connector: "j-summary-j-markdown", note: "Markdown is reused from cache or freshly built for the job." },
+      { node: "j-summary-cache", connector: "j-markdown-j-summary-cache", note: "Summary cache is checked before calling the provider." },
+      { node: "j-complete", connector: "j-summary-cache-j-complete", note: "Summary and result are attached and the job is persisted as completed." }
+    ]
   },
-  "preview-hit": {
-    title: "Cache Hit",
-    initial: "Running the short preview path from cache.",
+  "scrape-cached": {
+    title: "Cached Return",
+    initial: "Tracing the immediate reuse path for an existing cached job.",
     finalState: "complete",
     steps: [
-      { node: "p-request", note: "Preview request enters the route." },
-      { node: "p-validate", connector: "p-request-p-validate", note: "The URL passes the initial validation layer." },
-      { node: "p-cache", connector: "p-validate-p-cache", note: "The cache lookup succeeds immediately." },
-      { node: "p-cached", connector: "p-cache-p-cached", note: "The cached result is returned without a network fetch." },
-      { node: "p-cached-render", connector: "p-cached-p-cached-render", note: "The frontend renders the cached preview." },
-    ],
+      { node: "j-submit", note: "A repeated scrape request enters the same route." },
+      { node: "j-validate", connector: "j-submit-j-validate", note: "Validation still runs first." },
+      { node: "j-check", connector: "j-validate-j-check", note: "The URL and summary type are matched against cached job state." },
+      { node: "j-cached", connector: "j-check-j-cached", note: "The backend returns the existing job immediately instead of reprocessing.", connectorState: "cache" }
+    ]
   },
-  "markdown-success": {
+  "job-summary": {
+    title: "GET /scrape/{job_id}/summary",
+    initial: "Tracing summary lookup after a job has already completed.",
+    finalState: "complete",
+    steps: [
+      { node: "j-complete", note: "The scrape job has already finished and stored its final summary." },
+      { node: "q-summary", connector: "j-complete-q-summary", note: "This follow-up route reads from the completed job record.", connectorState: "cache" },
+      { node: "q-summary-return", connector: "q-summary-q-summary-return", note: "The summarization payload is returned if available, otherwise the route can emit 409." }
+    ]
+  },
+  "markdown-export": {
     title: "POST /scrape/markdown",
-    initial: "Tracing the markdown export path.",
+    initial: "Tracing the markdown utility path used alongside the core job pipeline.",
     finalState: "complete",
     steps: [
-      { node: "m-request", note: "The markdown route receives the target URL." },
-      { node: "m-request", connector: "p-render-m-request", note: "Markdown export is typically triggered after the preview is reviewed." },
-      { node: "m-validate", connector: "m-request-m-validate", note: "The URL is validated before fetching." },
-      { node: "m-fetch", connector: "m-validate-m-fetch", note: "The page is fetched from the source site." },
-      { node: "m-html", connector: "m-fetch-m-html", note: "The response is checked for HTML content." },
-      { node: "m-convert", connector: "m-html-m-convert", note: "The HTML is converted into markdown." },
-      { node: "m-cache", connector: "m-convert-m-cache", note: "Optional helper path for storing markdown in cache." },
-      { node: "m-attachment", connector: "m-cache-m-attachment", note: "The response is packaged as a markdown attachment." },
-      { node: "m-download", connector: "m-attachment-m-download", note: "The browser downloads the generated .md file." },
-    ],
+      { node: "j-summary", note: "Markdown sits beside the summarising stage in the main pipeline." },
+      { node: "u-markdown", connector: "j-summary-u-markdown", note: "The utility endpoint reads cached markdown or builds it on demand.", connectorState: "cache" },
+      { node: "u-markdown-return", connector: "u-markdown-u-markdown-return", note: "A markdown attachment is returned for download." }
+    ]
   },
-  "preview-error": {
-    title: "Preview Error",
-    initial: "Tracing a failed preview request.",
-    finalState: "error",
-    steps: [
-      { node: "p-request", note: "The preview route receives the request." },
-      { node: "p-validate", connector: "p-request-p-validate", note: "Validation inspects the URL." },
-      { node: "p-error", connector: "p-validate-p-error", note: "Invalid or unsafe input triggers HTTP 400.", error: true },
-    ],
-  },
-  "markdown-error": {
-    title: "Markdown Error",
-    initial: "Tracing a markdown failure branch.",
-    finalState: "error",
-    steps: [
-      { node: "m-request", note: "The markdown route is triggered." },
-      { node: "m-validate", connector: "m-request-m-validate", note: "Input validation completes successfully." },
-      { node: "m-fetch", connector: "m-validate-m-fetch", note: "The backend begins fetching the page." },
-      { node: "m-error", connector: "m-fetch-m-error", note: "Timeout, HTTP failure, or a non-HTML response ends the request.", error: true },
-    ],
-  },
-  "summary-success": {
-    title: "AI Summary",
-    initial: "Tracing the planned OpenAI summary flow.",
+  "delete-job": {
+    title: "DELETE /scrape/{job_id}",
+    initial: "Tracing cleanup after a job has already completed or been stored.",
     finalState: "complete",
     steps: [
-      { node: "s-request", note: "A technical summary run is triggered after markdown is available." },
-      { node: "s-request", connector: "m-cache-s-request", note: "The summary pipeline starts from fresh or cached markdown." },
-      { node: "s-load", connector: "s-request-s-load", note: "Markdown is loaded from a fresh scrape or cache." },
-      { node: "s-cache", connector: "s-load-s-cache", note: "A summary cache is checked first." },
-      { node: "s-openai", connector: "s-cache-s-openai", note: "Cache miss. The markdown is sent through the OpenAI SDK." },
-      { node: "s-store", connector: "s-openai-s-store", note: "The generated summary is stored for reuse." },
-      { node: "s-summary", connector: "s-store-s-summary", note: "The summary is returned to the technical caller." },
-    ],
+      { node: "j-complete", note: "A stored job and its related caches are already available." },
+      { node: "q-delete", connector: "j-complete-q-delete", note: "This follow-up route removes the job record plus URL-linked cache entries.", connectorState: "cache" },
+      { node: "q-delete-return", connector: "q-delete-q-delete-return", note: "The API returns 204 after cleanup completes." }
+    ]
   },
-  "summary-error": {
-    title: "Summary Error",
-    initial: "Tracing the planned summary failure branch.",
+  shortener: {
+    title: "Shortener",
+    initial: "Tracing short URL creation, redirect, and stats lookup.",
+    finalState: "complete",
+    steps: [
+      { node: "u-shorten", note: "A short code is generated and cached for the original URL." },
+      { node: "u-redirect", connector: "u-shorten-u-redirect", note: "Public redirect reads the short code and increments clicks." },
+      { node: "u-stats", connector: "u-redirect-u-stats", note: "Stats lookup returns the click count and short URL metadata." },
+      { node: "u-health", note: "Operationally, health remains independent of short-link traffic." },
+      { node: "u-health-return", connector: "u-health-u-health-return", note: "Health exposes API status and Redis connectivity state." }
+    ]
+  },
+  "scrape-failed": {
+    title: "Failure",
+    initial: "Tracing a job that fails during scrape or summary generation.",
     finalState: "error",
     steps: [
-      { node: "s-request", note: "A summary run is started." },
-      { node: "s-request", connector: "m-cache-s-request", note: "The summary branch is entered from the markdown stage." },
-      { node: "s-load", connector: "s-request-s-load", note: "Markdown is loaded for summarisation." },
-      { node: "s-cache", connector: "s-load-s-cache", note: "No cached summary is available." },
-      { node: "s-openai", connector: "s-cache-s-openai", note: "The OpenAI SDK call begins." },
-      { node: "s-error", connector: "s-openai-s-error", note: "Rate limit, network failure, or model error stops the flow.", error: true },
-    ],
-  },
+      { node: "j-submit", note: "A scrape request enters the pipeline." },
+      { node: "j-validate", connector: "j-submit-j-validate", note: "Input validation succeeds and processing begins." },
+      { node: "j-check", connector: "j-validate-j-check", note: "No cached completion is available." },
+      { node: "j-queue", connector: "j-check-j-queue", note: "A background job is created." },
+      { node: "j-crawl", connector: "j-queue-j-crawl", note: "The scraper fetches the target page." },
+      { node: "j-failed", connector: "j-crawl-j-failed", note: "Fetch, HTML validation, or provider failure pushes the job into failed state.", error: true }
+    ]
+  }
 };
 
-let activeScenarioKey = "preview-miss";
+let activeScenarioKey = "scrape-queued";
 let animationRun = 0;
 
 function clearState() {
   document.querySelectorAll(".node").forEach((node) => {
-    node.classList.remove("is-active", "is-complete", "is-error", "is-terminal");
+    node.classList.remove("is-active", "is-complete", "is-error");
   });
 
   arrowLayer.querySelectorAll(".arrow").forEach((arrow) => {
-    arrow.classList.remove("is-active", "is-complete", "is-error");
+    arrow.classList.remove("is-active", "is-complete", "is-error", "is-cache");
+    if (arrow.dataset.baseState === "cache") {
+      arrow.classList.add("is-cache");
+    }
   });
 }
 
 function setStatus(state, title, text) {
   statusPanel.dataset.state = state;
-  statusPill.textContent = state === "idle" ? "Idle" : state === "error" ? "Error" : state === "running" ? "Running" : "Complete";
+  statusPill.textContent =
+    state === "idle" ? "Idle" : state === "error" ? "Error" : state === "running" ? "Running" : "Complete";
   statusTitle.textContent = title;
   statusText.textContent = text;
 }
@@ -197,16 +175,24 @@ function getAnchorPoint(rect, side, hostRect) {
 function buildConnectorPath(sourceRect, targetRect, hostRect) {
   const sourceCenter = {
     x: sourceRect.left - hostRect.left + sourceRect.width / 2,
-    y: sourceRect.top - hostRect.top + sourceRect.height / 2,
+    y: sourceRect.top - hostRect.top + sourceRect.height / 2
   };
   const targetCenter = {
     x: targetRect.left - hostRect.left + targetRect.width / 2,
-    y: targetRect.top - hostRect.top + targetRect.height / 2,
+    y: targetRect.top - hostRect.top + targetRect.height / 2
   };
 
-  const horizontal = Math.abs(targetCenter.x - sourceCenter.x) >= Math.abs(targetCenter.y - sourceCenter.y);
-  const start = getAnchorPoint(sourceRect, horizontal ? (targetCenter.x >= sourceCenter.x ? "right" : "left") : (targetCenter.y >= sourceCenter.y ? "bottom" : "top"), hostRect);
-  const end = getAnchorPoint(targetRect, horizontal ? (targetCenter.x >= sourceCenter.x ? "left" : "right") : (targetCenter.y >= sourceCenter.y ? "top" : "bottom"), hostRect);
+  const horizontal = Math.abs(targetCenter.x - sourceCenter.x) > Math.abs(targetCenter.y - sourceCenter.y);
+  const start = getAnchorPoint(
+    sourceRect,
+    horizontal ? (targetCenter.x >= sourceCenter.x ? "right" : "left") : (targetCenter.y >= sourceCenter.y ? "bottom" : "top"),
+    hostRect
+  );
+  const end = getAnchorPoint(
+    targetRect,
+    horizontal ? (targetCenter.x >= sourceCenter.x ? "left" : "right") : (targetCenter.y >= sourceCenter.y ? "top" : "bottom"),
+    hostRect
+  );
 
   if (horizontal) {
     const bend = (start.x + end.x) / 2;
@@ -219,7 +205,6 @@ function buildConnectorPath(sourceRect, targetRect, hostRect) {
 
 function drawConnectors() {
   arrowLayer.querySelectorAll(".arrow").forEach((path) => path.remove());
-
   const hostRect = diagram.getBoundingClientRect();
   arrowLayer.setAttribute("viewBox", `0 0 ${Math.ceil(hostRect.width)} ${Math.ceil(hostRect.height)}`);
 
@@ -232,8 +217,12 @@ function drawConnectors() {
 
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", buildConnectorPath(from.getBoundingClientRect(), to.getBoundingClientRect(), hostRect));
-    path.setAttribute("class", connector.dashed ? "arrow arrow-dashed" : "arrow");
+    path.setAttribute("class", "arrow");
     path.dataset.connectorId = connector.id;
+    path.dataset.baseState = connector.state || "";
+    if (connector.state === "cache") {
+      path.classList.add("is-cache");
+    }
     arrowLayer.appendChild(path);
   });
 }
@@ -258,20 +247,21 @@ async function runScenario(key) {
 
     const node = document.getElementById(step.node);
     const connector = step.connector ? getConnectorElement(step.connector) : null;
-    const stateClass = step.error ? "is-error" : "is-complete";
+    const connectorState = step.error ? "is-error" : step.connectorState === "cache" ? "is-cache" : "is-complete";
+    const nodeState = step.error ? "is-error" : "is-complete";
 
     if (connector) {
-      connector.classList.remove("is-complete", "is-error");
-      connector.classList.add(step.error ? "is-error" : "is-active");
+      connector.classList.remove("is-complete", "is-error", "is-cache");
+      connector.classList.add("is-active");
     }
 
     if (node) {
-      node.classList.remove("is-complete", "is-error", "is-terminal");
+      node.classList.remove("is-complete", "is-error");
       node.classList.add("is-active");
     }
 
     setStatus("running", scenario.title, step.note);
-    await wait(540);
+    await wait(460);
 
     if (runId !== animationRun) {
       return;
@@ -279,26 +269,23 @@ async function runScenario(key) {
 
     if (connector) {
       connector.classList.remove("is-active");
-      connector.classList.add(stateClass);
+      connector.classList.add(connectorState);
     }
 
     if (node) {
       node.classList.remove("is-active");
-      node.classList.add(stateClass);
-      if (node.classList.contains("node-terminal")) {
-        node.classList.add("is-terminal");
-      }
+      node.classList.add(nodeState);
     }
   }
 
-  const outcomeText = scenario.finalState === "error" ? "Error branch complete." : "Flow complete.";
+  const outcomeText = scenario.finalState === "error" ? "Failure branch complete." : "Flow complete.";
   setStatus(scenario.finalState, scenario.title, outcomeText);
 }
 
 function resetDiagram() {
   animationRun += 1;
   clearState();
-  setStatus("idle", "Waiting for a scenario", "Run any path to watch nodes and arrows move through the pipeline.");
+  setStatus("idle", "Waiting for a scenario", "Select a backend path to animate nodes and connector states.");
 }
 
 scenarioButtons.forEach((button) => {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Workflow Automation Map</title>
+  <title>Technical Workflow Map</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -13,24 +13,23 @@
   <div class="page-shell">
     <header class="page-header">
       <div>
-        <p class="eyebrow">Standalone technical view</p>
-        <h1>Workflow Automation Map</h1>
+        <p class="eyebrow">Internal workflow map</p>
+        <h1>Web Scraper Pipeline</h1>
       </div>
       <div class="header-chips">
-        <span class="header-chip">Interactive</span>
-        <span class="header-chip">Internal Only</span>
+        <span class="header-chip">Backend flow</span>
       </div>
     </header>
 
     <section class="control-bar">
       <div class="scenario-group">
-        <button class="scenario-button is-selected" data-scenario="preview-miss">POST /scrape</button>
-        <button class="scenario-button" data-scenario="preview-hit">Cache Hit</button>
-        <button class="scenario-button" data-scenario="markdown-success">POST /scrape/markdown</button>
-        <button class="scenario-button" data-scenario="preview-error">Preview Error</button>
-        <button class="scenario-button" data-scenario="markdown-error">Markdown Error</button>
-        <button class="scenario-button" data-scenario="summary-success">AI Summary</button>
-        <button class="scenario-button" data-scenario="summary-error">Summary Error</button>
+        <button class="scenario-button is-selected" data-scenario="scrape-queued">POST /scrape</button>
+        <button class="scenario-button" data-scenario="scrape-cached">Cached Return</button>
+        <button class="scenario-button" data-scenario="job-summary">GET Summary</button>
+        <button class="scenario-button" data-scenario="markdown-export">Markdown</button>
+        <button class="scenario-button" data-scenario="delete-job">Delete Job</button>
+        <button class="scenario-button" data-scenario="shortener">Shortener</button>
+        <button class="scenario-button" data-scenario="scrape-failed">Failure</button>
       </div>
 
       <div class="utility-group">
@@ -43,186 +42,155 @@
       <div class="status-pill" id="status-pill">Idle</div>
       <div class="status-copy">
         <p id="status-title">Waiting for a scenario</p>
-        <p id="status-text">Run any path to watch nodes and arrows move through the pipeline.</p>
+        <p id="status-text">Select a backend path to animate nodes and connector states.</p>
       </div>
     </section>
 
     <section class="legend">
-      <span class="legend-item"><i class="legend-dot legend-dot-active"></i>Active step</span>
-      <span class="legend-item"><i class="legend-dot legend-dot-complete"></i>Completed step</span>
+      <span class="legend-item"><i class="legend-dot legend-dot-active"></i>Running path</span>
+      <span class="legend-item"><i class="legend-dot legend-dot-complete"></i>Completed path</span>
       <span class="legend-item"><i class="legend-dot legend-dot-error"></i>Error path</span>
-      <span class="legend-item"><i class="legend-dot legend-dot-planned"></i>Planned AI branch</span>
+      <span class="legend-item"><i class="legend-dot legend-dot-cache"></i>Cache reuse</span>
     </section>
 
-    <div class="diagram-scroll">
-      <section id="diagram" class="diagram">
-        <svg id="arrow-layer" class="arrow-layer" aria-hidden="true">
-          <defs>
-            <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse">
-              <path d="M0,0 L12,6 L0,12 z" fill="context-stroke"></path>
-            </marker>
-          </defs>
-        </svg>
+    <section id="diagram" class="diagram">
+      <svg id="arrow-layer" class="arrow-layer" aria-hidden="true">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+      </svg>
 
-        <section class="flow-panel">
-          <div class="lane-title" style="grid-column: 1 / -1; grid-row: 1;">
-            <span>Current</span>
-            <strong>POST /scrape preview pipeline</strong>
-          </div>
+      <section class="flow-panel flow-panel-main">
+        <div class="lane-title">
+          <span>Core</span>
+          <strong>Job Pipeline</strong>
+        </div>
 
-          <article id="p-request" class="node node-start" style="grid-column: 2; grid-row: 2;">
-            <span class="node-tag">start</span>
-            <strong>POST /scrape</strong>
-          </article>
-          <article id="p-validate" class="node" style="grid-column: 2; grid-row: 3;">
-            <span class="node-tag">guard</span>
-            <strong>Validate URL</strong>
-          </article>
-          <article id="p-cache" class="node" style="grid-column: 2; grid-row: 4;">
-            <span class="node-tag">cache</span>
-            <strong>Cache hit?</strong>
-          </article>
-          <article id="p-fetch" class="node" style="grid-column: 2; grid-row: 5;">
-            <span class="node-tag">fetch</span>
-            <strong>Fetch page</strong>
-          </article>
-          <article id="p-html" class="node" style="grid-column: 2; grid-row: 6;">
-            <span class="node-tag">check</span>
-            <strong>HTML?</strong>
-          </article>
-          <article id="p-parse" class="node" style="grid-column: 2; grid-row: 7;">
-            <span class="node-tag">parse</span>
-            <strong>Parse HTML</strong>
-          </article>
-          <article id="p-extract" class="node" style="grid-column: 2; grid-row: 8;">
-            <span class="node-tag">extract</span>
-            <strong>Extract data</strong>
-          </article>
-          <article id="p-code" class="node" style="grid-column: 2; grid-row: 9;">
-            <span class="node-tag">hash</span>
-            <strong>Short code</strong>
-          </article>
-          <article id="p-build" class="node" style="grid-column: 2; grid-row: 10;">
-            <span class="node-tag">build</span>
-            <strong>Build result</strong>
-          </article>
-          <article id="p-store" class="node" style="grid-column: 2; grid-row: 11;">
-            <span class="node-tag">write</span>
-            <strong>Cache result</strong>
-          </article>
-          <article id="p-response" class="node" style="grid-column: 2; grid-row: 12;">
-            <span class="node-tag">return</span>
-            <strong>JSON response</strong>
-          </article>
-          <article id="p-render" class="node node-terminal" style="grid-column: 2; grid-row: 13;">
-            <span class="node-tag">end</span>
-            <strong>Render preview</strong>
-          </article>
+        <article id="j-submit" class="node node-start">
+          <span class="node-tag">entry</span>
+          <strong>POST /scrape</strong>
+        </article>
+        <article id="j-validate" class="node">
+          <span class="node-tag">guard</span>
+          <strong>Validate URL</strong>
+        </article>
+        <article id="j-check" class="node">
+          <span class="node-tag">cache</span>
+          <strong>Job / asset check</strong>
+        </article>
+        <article id="j-queue" class="node">
+          <span class="node-tag">queue</span>
+          <strong>Queue job</strong>
+        </article>
+        <article id="j-crawl" class="node">
+          <span class="node-tag">scrape</span>
+          <strong>Status: scraping</strong>
+        </article>
+        <article id="j-result" class="node">
+          <span class="node-tag">write</span>
+          <strong>Cache scrape result</strong>
+        </article>
+        <article id="j-summary" class="node">
+          <span class="node-tag">ai</span>
+          <strong>Status: summarising</strong>
+        </article>
+        <article id="j-markdown" class="node">
+          <span class="node-tag">md</span>
+          <strong>Markdown check/build</strong>
+        </article>
+        <article id="j-summary-cache" class="node">
+          <span class="node-tag">cache</span>
+          <strong>Summary check</strong>
+        </article>
+        <article id="j-complete" class="node node-terminal">
+          <span class="node-tag">done</span>
+          <strong>Status: completed</strong>
+        </article>
 
-          <article id="p-cached" class="node" style="grid-column: 3; grid-row: 5;">
-            <span class="node-tag">shortcut</span>
-            <strong>Return cached</strong>
-          </article>
-          <article id="p-cached-render" class="node node-terminal" style="grid-column: 3; grid-row: 6;">
-            <span class="node-tag">end</span>
-            <strong>Render cached</strong>
-          </article>
-          <article id="p-error" class="node node-error-target" style="grid-column: 1; grid-row: 5 / span 2;">
-            <span class="node-tag">error</span>
-            <strong>HTTP 400</strong>
-          </article>
-        </section>
-
-        <section class="flow-panel">
-          <div class="lane-title" style="grid-column: 1 / -1; grid-row: 1;">
-            <span>Current</span>
-            <strong>POST /scrape/markdown export pipeline</strong>
-          </div>
-
-          <article id="m-request" class="node node-start" style="grid-column: 2; grid-row: 2;">
-            <span class="node-tag">start</span>
-            <strong>POST /scrape/markdown</strong>
-          </article>
-          <article id="m-validate" class="node" style="grid-column: 2; grid-row: 3;">
-            <span class="node-tag">guard</span>
-            <strong>Validate URL</strong>
-          </article>
-          <article id="m-fetch" class="node" style="grid-column: 2; grid-row: 4;">
-            <span class="node-tag">fetch</span>
-            <strong>Fetch page</strong>
-          </article>
-          <article id="m-html" class="node" style="grid-column: 2; grid-row: 5;">
-            <span class="node-tag">check</span>
-            <strong>HTML?</strong>
-          </article>
-          <article id="m-convert" class="node" style="grid-column: 2; grid-row: 6;">
-            <span class="node-tag">convert</span>
-            <strong>Markdownify</strong>
-          </article>
-          <article id="m-cache" class="node node-planned" style="grid-column: 2; grid-row: 7;">
-            <span class="node-tag">helper</span>
-            <strong>Markdown cache</strong>
-          </article>
-          <article id="m-attachment" class="node" style="grid-column: 2; grid-row: 8;">
-            <span class="node-tag">return</span>
-            <strong>.md attachment</strong>
-          </article>
-          <article id="m-download" class="node node-terminal" style="grid-column: 2; grid-row: 9;">
-            <span class="node-tag">end</span>
-            <strong>Browser download</strong>
-          </article>
-          <article id="m-error" class="node node-error-target" style="grid-column: 1; grid-row: 5 / span 2;">
-            <span class="node-tag">error</span>
-            <strong>Markdown failed</strong>
-          </article>
-        </section>
-
-        <section class="flow-panel">
-          <div class="lane-title" style="grid-column: 1 / -1; grid-row: 1;">
-            <span>Planned</span>
-            <strong>OpenAI summary pipeline</strong>
-          </div>
-
-          <article id="s-request" class="node node-start node-planned" style="grid-column: 2; grid-row: 2;">
-            <span class="node-tag">start</span>
-            <strong>Summary trigger</strong>
-          </article>
-          <article id="s-load" class="node node-planned" style="grid-column: 2; grid-row: 3;">
-            <span class="node-tag">load</span>
-            <strong>Load markdown</strong>
-          </article>
-          <article id="s-cache" class="node node-planned" style="grid-column: 2; grid-row: 4;">
-            <span class="node-tag">cache</span>
-            <strong>Summary cache?</strong>
-          </article>
-          <article id="s-openai" class="node node-planned" style="grid-column: 2; grid-row: 5;">
-            <span class="node-tag">sdk</span>
-            <strong>OpenAI SDK</strong>
-          </article>
-          <article id="s-store" class="node node-planned" style="grid-column: 2; grid-row: 6;">
-            <span class="node-tag">write</span>
-            <strong>Store summary</strong>
-          </article>
-          <article id="s-summary" class="node node-terminal node-planned" style="grid-column: 2; grid-row: 7;">
-            <span class="node-tag">end</span>
-            <strong>Return summary</strong>
-          </article>
-
-          <article id="s-cached" class="node node-planned" style="grid-column: 3; grid-row: 5;">
-            <span class="node-tag">shortcut</span>
-            <strong>Cached summary</strong>
-          </article>
-          <article id="s-cached-return" class="node node-terminal node-planned" style="grid-column: 3; grid-row: 6;">
-            <span class="node-tag">end</span>
-            <strong>Return cached</strong>
-          </article>
-          <article id="s-error" class="node node-error-target node-planned" style="grid-column: 1; grid-row: 5 / span 2;">
-            <span class="node-tag">error</span>
-            <strong>Summary failed</strong>
-          </article>
-        </section>
+        <article id="j-cached" class="node node-cache">
+          <span class="node-tag">hit</span>
+          <strong>Return cached job</strong>
+        </article>
+        <article id="j-failed" class="node node-error-target">
+          <span class="node-tag">fail</span>
+          <strong>Status: failed</strong>
+        </article>
       </section>
-    </div>
+
+      <section class="flow-panel flow-panel-side">
+        <div class="lane-title">
+          <span>Follow-up</span>
+          <strong>Post-completion actions</strong>
+        </div>
+
+        <article id="q-job" class="node node-start">
+          <span class="node-tag">read</span>
+          <strong>GET /scrape/{job_id}</strong>
+        </article>
+        <article id="q-job-return" class="node node-terminal">
+          <span class="node-tag">json</span>
+          <strong>Return job state</strong>
+        </article>
+
+        <article id="q-summary" class="node node-start">
+          <span class="node-tag">read</span>
+          <strong>GET /scrape/{job_id}/summary</strong>
+        </article>
+        <article id="q-summary-return" class="node node-terminal">
+          <span class="node-tag">json</span>
+          <strong>Return summary / 409</strong>
+        </article>
+
+        <article id="q-delete" class="node node-start">
+          <span class="node-tag">drop</span>
+          <strong>DELETE /scrape/{job_id}</strong>
+        </article>
+        <article id="q-delete-return" class="node node-terminal">
+          <span class="node-tag">204</span>
+          <strong>Delete job + caches</strong>
+        </article>
+      </section>
+
+      <section class="flow-panel flow-panel-side">
+        <div class="lane-title">
+          <span>Utilities</span>
+          <strong>Markdown / Shortener / Health</strong>
+        </div>
+
+        <article id="u-markdown" class="node node-start">
+          <span class="node-tag">md</span>
+          <strong>POST /scrape/markdown</strong>
+        </article>
+        <article id="u-markdown-return" class="node node-terminal">
+          <span class="node-tag">file</span>
+          <strong>Return .md attachment</strong>
+        </article>
+
+        <article id="u-shorten" class="node node-start">
+          <span class="node-tag">short</span>
+          <strong>POST /shorten</strong>
+        </article>
+        <article id="u-redirect" class="node">
+          <span class="node-tag">307</span>
+          <strong>GET /s/{code}</strong>
+        </article>
+        <article id="u-stats" class="node node-terminal">
+          <span class="node-tag">stats</span>
+          <strong>GET /shorten/{code}/stats</strong>
+        </article>
+
+        <article id="u-health" class="node node-start">
+          <span class="node-tag">ops</span>
+          <strong>GET /health</strong>
+        </article>
+        <article id="u-health-return" class="node node-terminal">
+          <span class="node-tag">ok</span>
+          <strong>status + redis state</strong>
+        </article>
+      </section>
+    </section>
   </div>
 
   <script src="./workflow.js"></script>
