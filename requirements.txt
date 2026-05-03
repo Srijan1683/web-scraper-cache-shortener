@@ -11,6 +11,7 @@ h11==0.16.0
 httpx==0.28.1
 idna==3.11
 markdownify==1.2.0
+openai==1.99.9
 openrouter==0.9.1
 pydantic==2.12.5
 pydantic_core==2.41.5
