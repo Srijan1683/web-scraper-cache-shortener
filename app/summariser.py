@@ -107,26 +107,29 @@ def split_into_chunks(text: str, max_tokens: int = CHUNK_TOKEN_LIMIT) -> list[st
 
 
 async def _request_summary(markdown_text: str, summary_type: SummaryType) -> SummarizationResult:
-    completion = await client.chat.completions.create(
-        extra_headers={
-            "HTTP-Referer": OPENROUTER_HTTP_REFERER,
-            "X-OpenRouter-Title": APP_TITLE,
-        },
-        model=model_name,
-        messages=[
-            {
-                "role": "developer",
-                "content": SYSTEM_PROMPT,
+    try:
+        completion = await client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": OPENROUTER_HTTP_REFERER,
+                "X-OpenRouter-Title": APP_TITLE,
             },
-            {
-                "role": "user",
-                "content": (
-                    f"{_user_prompt(summary_type)}\n\n"
-                    f"Markdown to summarize:\n---\n{markdown_text}\n---"
-                ),
-            },
-        ],
-    )
+            model=model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"{_user_prompt(summary_type)}\n\n"
+                        f"Markdown to summarize:\n---\n{markdown_text}\n---"
+                    ),
+                },
+            ],
+        )
+    except Exception as exc:
+        raise ValueError(f"Summary request failed: {exc}") from exc
 
     summary = _extract_text_content(completion.choices[0].message.content)
     if not summary:
