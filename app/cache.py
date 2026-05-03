@@ -7,6 +7,7 @@ from typing import Optional, TYPE_CHECKING
 
 from app.models import ScrapeJobResponse, ScrapeResult, ShortUrlStats
 from app.summary_models import SummarizationResult
+from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from redis import Redis as RedisClient
@@ -39,6 +40,15 @@ def _get_redis_client() -> Optional[RedisClient]:
     return Redis.from_url(REDIS_URL, decode_responses=True)
 
 
+def _delete_key(key: str) -> None:
+    redis_client = _get_redis_client()
+    if redis_client is not None:
+        redis_client.delete(key)
+        return
+
+    _memory_cache.pop(key, None)
+
+
 def get_redis_status() -> str:
     redis_client = _get_redis_client()
     if redis_client is None:
@@ -53,20 +63,29 @@ def get_redis_status() -> str:
 
 
 def get_cached_result(url: str) -> Optional[ScrapeResult]:
+    cache_key = url
     redis_client = _get_redis_client()
     if redis_client is not None:
-        cached_data = redis_client.get(url)
+        cached_data = redis_client.get(cache_key)
         if cached_data is None:
             return None
-        return ScrapeResult.model_validate_json(cached_data)
+        try:
+            return ScrapeResult.model_validate_json(cached_data)
+        except ValidationError:
+            redis_client.delete(cache_key)
+            return None
 
     _purge_expired_memory_entries()
-    cached_entry = _memory_cache.get(url)
+    cached_entry = _memory_cache.get(cache_key)
     if cached_entry is None:
         return None
 
     _, cached_data = cached_entry
-    return ScrapeResult.model_validate_json(cached_data)
+    try:
+        return ScrapeResult.model_validate_json(cached_data)
+    except ValidationError:
+        _memory_cache.pop(cache_key, None)
+        return None
 
 
 def set_cached_result(url: str, data: ScrapeResult) -> None:
@@ -173,7 +192,11 @@ def get_cached_summary(url: str, summary_type: str) -> Optional[SummarizationRes
         cached_data = redis_client.get(summary_key)
         if cached_data is None:
             return None
-        return SummarizationResult.model_validate_json(cached_data)
+        try:
+            return SummarizationResult.model_validate_json(cached_data)
+        except ValidationError:
+            redis_client.delete(summary_key)
+            return None
 
     _purge_expired_memory_entries()
     cached_entry = _memory_cache.get(summary_key)
@@ -181,7 +204,11 @@ def get_cached_summary(url: str, summary_type: str) -> Optional[SummarizationRes
         return None
 
     _, cached_data = cached_entry
-    return SummarizationResult.model_validate_json(cached_data)
+    try:
+        return SummarizationResult.model_validate_json(cached_data)
+    except ValidationError:
+        _memory_cache.pop(summary_key, None)
+        return None
 
 
 def set_cached_summary(url: str, summary_type: str, data: SummarizationResult) -> None:
@@ -215,7 +242,11 @@ def get_cached_job(job_id: str) -> Optional[ScrapeJobResponse]:
         cached_data = redis_client.get(job_key)
         if cached_data is None:
             return None
-        return ScrapeJobResponse.model_validate_json(cached_data)
+        try:
+            return ScrapeJobResponse.model_validate_json(cached_data)
+        except ValidationError:
+            redis_client.delete(job_key)
+            return None
 
     _purge_expired_memory_entries()
     cached_entry = _memory_cache.get(job_key)
@@ -223,7 +254,11 @@ def get_cached_job(job_id: str) -> Optional[ScrapeJobResponse]:
         return None
 
     _, cached_data = cached_entry
-    return ScrapeJobResponse.model_validate_json(cached_data)
+    try:
+        return ScrapeJobResponse.model_validate_json(cached_data)
+    except ValidationError:
+        _memory_cache.pop(job_key, None)
+        return None
 
 
 def set_cached_job(job_id: str, data: ScrapeJobResponse) -> None:
@@ -295,7 +330,11 @@ def get_short_url(code: str) -> Optional[ShortUrlStats]:
         cached_data = redis_client.get(short_key)
         if cached_data is None:
             return None
-        return ShortUrlStats.model_validate_json(cached_data)
+        try:
+            return ShortUrlStats.model_validate_json(cached_data)
+        except ValidationError:
+            redis_client.delete(short_key)
+            return None
 
     _purge_expired_memory_entries()
     cached_entry = _memory_cache.get(short_key)
@@ -303,7 +342,11 @@ def get_short_url(code: str) -> Optional[ShortUrlStats]:
         return None
 
     _, cached_data = cached_entry
-    return ShortUrlStats.model_validate_json(cached_data)
+    try:
+        return ShortUrlStats.model_validate_json(cached_data)
+    except ValidationError:
+        _memory_cache.pop(short_key, None)
+        return None
 
 
 def set_short_url(code: str, data: ShortUrlStats) -> None:
