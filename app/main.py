@@ -45,7 +45,7 @@ from app.models import (
 from app.scraper import ScraperError, scrape_website, scrape_website_as_markdown
 from app.shortener import generate_short_code
 from app.summariser import summarise_markdown
-from app.summary_models import SummarizationResult
+from app.summary_models import SummarizationRequest, SummarizationResult
 
 app = FastAPI(title=APP_TITLE, version=APP_VERSION)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -118,6 +118,17 @@ async def _ensure_markdown(url: str) -> str:
     return markdown_content
 
 
+async def _ensure_summary(url: str, summary_type: SummaryType) -> SummarizationResult:
+    cached_summary = get_cached_summary(url, summary_type)
+    if cached_summary is not None:
+        return cached_summary
+
+    markdown_content = await _ensure_markdown(url)
+    summary_result = await summarise_markdown(markdown_content, summary_type)
+    set_cached_summary(url, summary_type, summary_result)
+    return summary_result
+
+
 async def process_scrape_job(job_id: str, url: str, summary_type: SummaryType) -> None:
     job = get_cached_job(job_id)
     if job is None:
@@ -142,11 +153,7 @@ async def process_scrape_job(job_id: str, url: str, summary_type: SummaryType) -
             )
         )
 
-        markdown_content = await _ensure_markdown(url)
-        cached_summary = get_cached_summary(url, summary_type)
-        if cached_summary is None:
-            cached_summary = await summarise_markdown(markdown_content, summary_type)
-            set_cached_summary(url, summary_type, cached_summary)
+        cached_summary = await _ensure_summary(url, summary_type)
 
         _save_job(
             job.model_copy(
@@ -193,6 +200,11 @@ def read_ui_styles() -> FileResponse:
 @app.get("/app.js", include_in_schema=False)
 def read_ui_script() -> FileResponse:
     return FileResponse(UI_DIR / "app.js")
+
+
+@app.get("/config.js", include_in_schema=False)
+def read_ui_config() -> FileResponse:
+    return FileResponse(UI_DIR / "config.js")
 
 
 @app.post("/scrape", response_model=ScrapeJobResponse, responses={422: {"model": ErrorResponse}})
@@ -279,6 +291,16 @@ async def scrape_markdown(request: ScrapeRequest) -> Response:
             },
         )
     except ScraperError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/summarize", response_model=SummarizationResult, responses={400: {"model": ErrorResponse}})
+async def summarize(request: SummarizationRequest) -> SummarizationResult:
+    try:
+        return await _ensure_summary(str(request.url), request.max_length)
+    except ScraperError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
