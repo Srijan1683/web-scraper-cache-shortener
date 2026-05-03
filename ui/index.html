@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <script src="./config.js"></script>
-  <link rel="stylesheet" href="./style.css">
+  <script src="./config.js?v=20260503a"></script>
+  <link rel="stylesheet" href="./style.css?v=20260503a">
 </head>
 <body>
   <div class="page-shell">
@@ -32,10 +32,10 @@
       <section class="hero-grid">
         <div class="hero-copy reveal">
           <p class="hero-kicker">Clean markdown. Fast workflow.</p>
-          <h2>Turn any HTTPS page into clean markdown.</h2>
+          <h2>Scrape, summarise, and export any HTTPS page.</h2>
           <p class="hero-text">
-            Drop in a URL, let the scraper fetch the page, and download a markdown export
-            that feels ready for notes, docs, or LLM workflows.
+            Drop in a URL, choose a summary mode, let the backend finish the scrape job,
+            and review both structured page data and the AI summary before downloading markdown.
           </p>
 
           <div class="stats">
@@ -47,8 +47,8 @@
                 </svg>
               </span>
               <div>
-                <strong>Markdown Export</strong>
-                <p>Downloads a real `.md` file from the backend.</p>
+                <strong>AI Summary Modes</strong>
+                <p>Choose brief or detailed output before the scrape job starts.</p>
               </div>
             </article>
             <article class="stat-card">
@@ -60,8 +60,8 @@
                 </svg>
               </span>
               <div>
-                <strong>One-click Download</strong>
-                <p>No frameworks, no extra build step, just HTML, CSS, and JS.</p>
+                <strong>Markdown Export</strong>
+                <p>Download the cached or freshly generated `.md` file from the backend.</p>
               </div>
             </article>
           </div>
@@ -134,6 +134,14 @@
               >
             </div>
 
+            <label for="summary-type">Summary mode</label>
+            <div class="select-wrap">
+              <select id="summary-type" name="summary_type">
+                <option value="brief">Brief summary</option>
+                <option value="detailed">Detailed summary</option>
+              </select>
+            </div>
+
             <button id="submit-button" type="submit">
               <span class="button-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -141,7 +149,7 @@
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </span>
-              <span class="button-text">Preview Result</span>
+              <span class="button-text">Start Scrape Job</span>
             </button>
 
             <button id="download-button" class="secondary-button" type="button" disabled>
@@ -159,7 +167,7 @@
           <div id="status-card" class="status-card" aria-live="polite">
             <div class="status-pill idle">Idle</div>
             <p class="status-title">Waiting for a URL</p>
-            <p class="status-message">Use an HTTPS address to inspect the page first, then download markdown only if you want it.</p>
+            <p class="status-message">Use an HTTPS URL, choose a summary mode, and start the scrape job when you are ready.</p>
           </div>
 
           <section id="preview-card" class="preview-card" aria-live="polite">
@@ -169,7 +177,7 @@
             </div>
             <h3 id="preview-title" class="preview-title">Scrape preview will appear here</h3>
             <p id="preview-description" class="preview-description">
-              Preview a page to inspect the title, metadata, and content summary before downloading markdown.
+              Run a scrape job to inspect page metadata and summary output before downloading markdown.
             </p>
 
             <div id="preview-metrics" class="preview-metrics">
@@ -188,9 +196,27 @@
             </div>
 
             <div id="preview-meta" class="preview-meta">
-              <p><span>Resolved URL</span> Preview not available yet.</p>
+              <p><span>Job</span> No job submitted yet.</p>
               <p><span>Status</span> Waiting for input.</p>
+              <p><span>Resolved URL</span> Preview not available yet.</p>
               <p><span>Content Length</span> 0 bytes</p>
+            </div>
+          </section>
+
+          <section id="summary-card" class="summary-card" aria-live="polite">
+            <div class="preview-head">
+              <p class="panel-label">Summary</p>
+              <span id="summary-mode-badge" class="preview-code">Brief</span>
+            </div>
+            <h3 id="summary-heading" class="preview-title">AI summary will appear here</h3>
+            <p id="summary-body" class="preview-description">
+              Choose a summary mode and run the scrape job to populate this section.
+            </p>
+            <div id="summary-meta" class="preview-meta">
+              <p><span>Model</span> Waiting for summary.</p>
+              <p><span>Prompt Tokens</span> 0</p>
+              <p><span>Completion Tokens</span> 0</p>
+              <p><span>Total Tokens</span> 0</p>
             </div>
           </section>
 
@@ -199,9 +225,10 @@
               <span></span><span></span><span></span>
             </div>
             <pre><code>$ POST /scrape
+&gt; choose summary mode
 &gt; validate URL
-&gt; fetch page
-&gt; inspect content
+&gt; queue or reuse job
+&gt; review summary
 &gt; choose download</code></pre>
           </div>
         </div>
@@ -235,7 +262,7 @@
           </svg>
         </span>
         <h3>Focused workflow</h3>
-        <p>The page is built around a deliberate flow: paste a URL, preview the scrape result, then download markdown when you decide to keep it.</p>
+        <p>The page is built around a deliberate flow: paste a URL, choose a summary mode, wait for the job to complete, then inspect the result and summary before downloading markdown.</p>
       </article>
 
       <article class="feature reveal">
@@ -246,11 +273,11 @@
           </svg>
         </span>
         <h3>Backend-connected</h3>
-        <p>The UI talks directly to your existing FastAPI endpoint, so the downloaded file is the real scraper output.</p>
+        <p>The UI talks directly to your FastAPI job endpoints, so the preview, summary, and markdown download all reflect the real backend pipeline.</p>
       </article>
     </main>
   </div>
 
-  <script src="./app.js"></script>
+  <script src="./app.js?v=20260503a"></script>
 </body>
 </html>
