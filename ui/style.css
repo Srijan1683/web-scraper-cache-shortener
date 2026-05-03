@@ -381,6 +381,42 @@ input {
   transform: translateY(-1px);
 }
 
+.select-wrap {
+  position: relative;
+}
+
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--accent-strong);
+  border-bottom: 2px solid var(--accent-strong);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.scrape-form select {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 46px 0 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(171, 200, 255, 0.14);
+  background: rgba(3, 9, 18, 0.92);
+  color: var(--text);
+  outline: none;
+  appearance: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.scrape-form select:focus {
+  border-color: rgba(50, 213, 255, 0.5);
+  box-shadow: 0 0 0 4px rgba(50, 213, 255, 0.09);
+  transform: translateY(-1px);
+}
+
 .scrape-form button {
   min-height: 56px;
   border: 0;
@@ -486,7 +522,8 @@ input {
   line-height: 1.6;
 }
 
-.preview-card {
+.preview-card,
+.summary-card {
   margin-top: 18px;
   padding: 20px;
   border-radius: 22px;
@@ -732,6 +769,7 @@ input {
   .data-console,
   .status-card,
   .preview-card,
+  .summary-card,
   .terminal-snippet,
   .stat-card {
     width: 100%;
