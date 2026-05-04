@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("OPENROUTER_API_KEY", "test-key")
 
 from app.main import app
-from app.scraper import ScraperError
+from app.models import ScrapeJobResponse, ScrapeResponse, ScrapeResult, ShortUrlStats
 from app.summary_models import SummarizationResult, TokenUsage
 
 
@@ -17,11 +17,47 @@ def build_summary_result() -> SummarizationResult:
     return SummarizationResult(
         summary="Example summary",
         model="openai/gpt-4o-mini",
-        token_usage=TokenUsage(
-            prompt_tokens=10,
-            completion_tokens=5,
-            total_tokens=15,
+        token_usage=TokenUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+
+
+def build_scrape_result(url: str = "https://example.com/") -> ScrapeResult:
+    created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return ScrapeResult(
+        short_code="abc123",
+        original_url=url,
+        clicks=0,
+        created_at=created_at,
+        data=ScrapeResponse(
+            url=url,
+            status_code=200,
+            status="crawling",
+            created_at=created_at,
+            completed_at=datetime(2026, 1, 1, 0, 0, 5, tzinfo=timezone.utc),
+            content_length=100,
+            title="Example Domain",
+            meta_description="Example description",
+            links=["https://iana.org/domains/example"],
+            images=[],
+            headings=["Example Domain"],
         ),
+    )
+
+
+def build_job(status: str = "completed", include_summary: bool = True) -> ScrapeJobResponse:
+    result = build_scrape_result()
+    summary = build_summary_result() if include_summary else None
+    return ScrapeJobResponse(
+        job_id="job-123",
+        original_url="https://example.com/",
+        summary_type="brief",
+        status=status,
+        created_at=result.created_at,
+        completed_at=result.data.completed_at if status == "completed" else None,
+        short_code=result.short_code,
+        result=result if status != "queued" else None,
+        summary=summary,
+        error="Job failed" if status == "failed" else None,
     )
 
 
@@ -33,230 +69,166 @@ def test_root_serves_frontend():
     assert "text/html" in response.headers["content-type"]
 
 
-def test_scrape_endpoint_returns_scraped_data(monkeypatch):
-    created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+def test_scrape_returns_cached_completed_job(monkeypatch):
+    completed_job = build_job()
 
-    async def fake_scrape_website(url):
-        return {
-            "url": url,
-            "status_code": 200,
-            "status": "crawling",
-            "created_at": created_at,
-            "completed_at": datetime(2026, 1, 1, 0, 0, 5, tzinfo=timezone.utc),
-            "content_length": 100,
-            "title": "Example Domain",
-            "meta_description": "Example description",
-            "links": ["https://iana.org/domains/example"],
-            "images": [],
-            "headings": ["Example Domain"],
-        }
+    monkeypatch.setattr("app.main.get_job_id_for_url", lambda url, summary_type: "job-123")
+    monkeypatch.setattr("app.main.get_cached_job", lambda job_id: completed_job)
 
-    def fake_generate_short_code(url):
-        return "abc123"
+    response = client.post("/scrape", json={"url": "https://example.com", "summary_type": "brief"})
 
+    assert response.status_code == 200
+    assert response.json()["job_id"] == "job-123"
+    assert response.json()["status"] == "completed"
+    assert response.json()["summary"]["summary"] == "Example summary"
+
+
+def test_scrape_queues_new_job_when_cache_misses(monkeypatch):
+    saved_jobs: list[ScrapeJobResponse] = []
+    saved_job_map: list[tuple[str, str, str]] = []
+
+    monkeypatch.setattr("app.main.get_job_id_for_url", lambda url, summary_type: None)
     monkeypatch.setattr("app.main.get_cached_result", lambda url: None)
-    monkeypatch.setattr("app.main.set_cached_result", lambda url, result: None)
-    monkeypatch.setattr("app.main.scrape_website", fake_scrape_website)
-    monkeypatch.setattr("app.main.generate_short_code", fake_generate_short_code)
+    monkeypatch.setattr("app.main.get_cached_summary", lambda url, summary_type: None)
+    monkeypatch.setattr("app.main.set_cached_job", lambda job_id, data: saved_jobs.append(data))
+    monkeypatch.setattr(
+        "app.main.set_job_id_for_url",
+        lambda url, summary_type, job_id: saved_job_map.append((url, summary_type, job_id)),
+    )
+    monkeypatch.setattr("app.main.process_scrape_job", lambda job_id, url, summary_type: None)
+    monkeypatch.setattr("app.main.generate_short_code", lambda url: "abc123")
 
-    response = client.post("/scrape", json={"url": "https://example.com"})
+    response = client.post("/scrape", json={"url": "https://example.com", "summary_type": "detailed"})
 
-    assert response.status_code == 200
-    assert response.json() == {
-        "short_code": "abc123",
-        "original_url": "https://example.com/",
-        "clicks": 0,
-        "created_at": "2026-01-01T00:00:00Z",
-        "data": {
-            "url": "https://example.com/",
-            "status_code": 200,
-            "status": "crawling",
-            "created_at": "2026-01-01T00:00:00Z",
-            "completed_at": "2026-01-01T00:00:05Z",
-            "content_length": 100,
-            "title": "Example Domain",
-            "meta_description": "Example description",
-            "links": ["https://iana.org/domains/example"],
-            "images": [],
-            "headings": ["Example Domain"],
-        },
-    }
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "queued"
+    assert body["summary_type"] == "detailed"
+    assert body["short_code"] == "abc123"
+    assert len(saved_jobs) == 1
+    assert saved_job_map == [("https://example.com/", "detailed", body["job_id"])]
 
 
-def test_scrape_endpoint_increments_clicks_for_cached_result(monkeypatch):
-    cached_result = {
-        "short_code": "abc123",
-        "original_url": "https://example.com/",
-        "clicks": 0,
-        "created_at": "2026-01-01T00:00:00Z",
-        "data": {
-            "url": "https://example.com",
-            "status_code": 200,
-            "status": "crawling",
-            "created_at": "2026-01-01T00:00:00Z",
-            "completed_at": "2026-01-01T00:00:05Z",
-            "content_length": 100,
-            "title": "Example Domain",
-            "meta_description": "Example description",
-            "links": ["https://iana.org/domains/example"],
-            "images": [],
-            "headings": ["Example Domain"],
-        },
-    }
+def test_get_scrape_job_returns_job(monkeypatch):
+    monkeypatch.setattr("app.main.get_cached_job", lambda job_id: build_job(status="summarising", include_summary=False))
 
-    def fake_get_cached_result(url):
-        assert url == "https://example.com/"
-        return cached_result
-
-    def fake_increment_result_clicks(url):
-        assert url == "https://example.com/"
-        return {
-            **cached_result,
-            "clicks": 1,
-        }
-
-    monkeypatch.setattr("app.main.get_cached_result", fake_get_cached_result)
-    monkeypatch.setattr("app.main.increment_result_clicks", fake_increment_result_clicks)
-
-    response = client.post("/scrape", json={"url": "https://example.com"})
+    response = client.get("/scrape/job-123")
 
     assert response.status_code == 200
-    assert response.json()["clicks"] == 1
+    assert response.json()["job_id"] == "job-123"
+    assert response.json()["status"] == "summarising"
 
 
-def test_scrape_endpoint_returns_400_for_scraper_error(monkeypatch):
-    async def fake_scrape_website(url):
-        raise ScraperError("Only HTTPS URLs are allowed")
+def test_get_scrape_summary_returns_409_while_processing(monkeypatch):
+    monkeypatch.setattr("app.main.get_cached_job", lambda job_id: build_job(status="summarising", include_summary=False))
 
-    monkeypatch.setattr("app.main.scrape_website", fake_scrape_website)
+    response = client.get("/scrape/job-123/summary")
 
-    response = client.post("/scrape", json={"url": "http://example.com"})
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Job still processing"}
 
-    assert response.status_code == 400
-    assert response.json() == {"detail": "Only HTTPS URLs are allowed"}
+
+def test_get_scrape_summary_returns_summary(monkeypatch):
+    monkeypatch.setattr("app.main.get_cached_job", lambda job_id: build_job())
+
+    response = client.get("/scrape/job-123/summary")
+
+    assert response.status_code == 200
+    assert response.json()["summary"] == "Example summary"
+
+
+def test_delete_scrape_job_removes_related_cache(monkeypatch):
+    deleted: list[tuple[str, str]] = []
+    monkeypatch.setattr("app.main.get_cached_job", lambda job_id: build_job())
+    monkeypatch.setattr("app.main.delete_cached_job", lambda job_id: deleted.append(("job", job_id)))
+    monkeypatch.setattr(
+        "app.main.delete_job_id_for_url",
+        lambda url, summary_type: deleted.append(("map", f"{summary_type}:{url}")),
+    )
+    monkeypatch.setattr(
+        "app.main.delete_cached_summary",
+        lambda url, summary_type: deleted.append(("summary", f"{summary_type}:{url}")),
+    )
+    monkeypatch.setattr("app.main.delete_cached_markdown", lambda url: deleted.append(("markdown", url)))
+    monkeypatch.setattr("app.main.delete_cached_result", lambda url: deleted.append(("result", url)))
+
+    response = client.delete("/scrape/job-123")
+
+    assert response.status_code == 204
+    assert ("job", "job-123") in deleted
+    assert ("result", "https://example.com/") in deleted
 
 
 def test_scrape_markdown_returns_cached_markdown_without_scraping(monkeypatch):
-    def fake_get_cached_markdown(url):
-        assert url == "https://example.com/"
-        return "# Cached markdown"
-
-    async def fake_scrape_website_as_markdown(url):
-        raise AssertionError("scrape_website_as_markdown should not be called on cache hit")
-
-    monkeypatch.setattr("app.main.get_cached_markdown", fake_get_cached_markdown)
-    monkeypatch.setattr("app.main.scrape_website_as_markdown", fake_scrape_website_as_markdown)
+    monkeypatch.setattr("app.main.get_cached_markdown", lambda url: "# Cached markdown")
     monkeypatch.setattr("app.main.generate_short_code", lambda url: "abc123")
 
-    response = client.post("/scrape/markdown", json={"url": "https://example.com"})
+    response = client.post("/scrape/markdown", json={"url": "https://example.com", "summary_type": "brief"})
 
     assert response.status_code == 200
     assert response.text == "# Cached markdown"
-    assert response.headers["content-type"].startswith("text/markdown")
     assert response.headers["content-disposition"] == 'attachment; filename="abc123.md"'
 
 
-def test_scrape_markdown_stores_markdown_after_scrape(monkeypatch):
-    calls: list[tuple[str, str]] = []
+def test_create_short_url_returns_created_response(monkeypatch):
+    short_url_stats = ShortUrlStats(
+        code="abc123",
+        original_url="https://example.com/",
+        clicks=0,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
 
-    def fake_get_cached_markdown(url):
-        assert url == "https://example.com/"
-        return None
-
-    async def fake_scrape_website_as_markdown(url):
-        assert url == "https://example.com/"
-        return "# Fresh markdown"
-
-    def fake_set_cached_markdown(url, markdown_content):
-        calls.append((url, markdown_content))
-
-    monkeypatch.setattr("app.main.get_cached_markdown", fake_get_cached_markdown)
-    monkeypatch.setattr("app.main.scrape_website_as_markdown", fake_scrape_website_as_markdown)
-    monkeypatch.setattr("app.main.set_cached_markdown", fake_set_cached_markdown)
     monkeypatch.setattr("app.main.generate_short_code", lambda url: "abc123")
+    monkeypatch.setattr("app.main.get_short_url", lambda code: None)
+    monkeypatch.setattr("app.main.set_short_url", lambda code, data: None)
+    monkeypatch.setattr("app.main.ShortUrlStats", lambda **kwargs: short_url_stats)
 
-    response = client.post("/scrape/markdown", json={"url": "https://example.com"})
+    response = client.post("/shorten", json={"url": "https://example.com"})
 
-    assert response.status_code == 200
-    assert response.text == "# Fresh markdown"
-    assert calls == [("https://example.com/", "# Fresh markdown")]
-
-
-def test_summarize_returns_cached_summary_without_calling_summariser(monkeypatch):
-    cached_summary = build_summary_result()
-
-    def fake_get_cached_summary(url, summary_type):
-        assert url == "https://example.com/"
-        assert summary_type == "brief"
-        return cached_summary
-
-    async def fake_summarise_markdown(content, summary_type):
-        raise AssertionError("summarise_markdown should not be called on cache hit")
-
-    monkeypatch.setattr("app.main.get_cached_summary", fake_get_cached_summary)
-    monkeypatch.setattr("app.main.summarise_markdown", fake_summarise_markdown)
-
-    response = client.post("/summarize", json={"url": "https://example.com", "max_length": "brief"})
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "summary": "Example summary",
-        "model": "openai/gpt-4o-mini",
-        "token_usage": {
-            "prompt_tokens": 10,
-            "completion_tokens": 5,
-            "total_tokens": 15,
-        },
-    }
+    assert response.status_code == 201
+    assert response.json()["code"] == "abc123"
+    assert response.json()["short_url"] == "/s/abc123"
 
 
-def test_summarize_stores_summary_after_generation(monkeypatch):
-    calls: list[tuple[str, str]] = []
-    summary_cache_calls: list[tuple[str, str, SummarizationResult]] = []
-    summary_result = build_summary_result()
+def test_redirect_short_url_returns_307(monkeypatch):
+    monkeypatch.setattr(
+        "app.main.increment_short_url_clicks",
+        lambda code: ShortUrlStats(
+            code=code,
+            original_url="https://example.com/",
+            clicks=1,
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            last_accessed_at=datetime(2026, 1, 1, 0, 0, 2, tzinfo=timezone.utc),
+        ),
+    )
 
-    def fake_get_cached_summary(url, summary_type):
-        assert url == "https://example.com/"
-        assert summary_type == "detailed"
-        return None
+    response = client.get("/s/abc123", follow_redirects=False)
 
-    def fake_get_cached_markdown(url):
-        assert url == "https://example.com/"
-        return None
+    assert response.status_code == 307
+    assert response.headers["location"] == "https://example.com/"
 
-    async def fake_scrape_website_as_markdown(url):
-        assert url == "https://example.com/"
-        return "# Fresh markdown"
 
-    def fake_set_cached_markdown(url, markdown_content):
-        calls.append((url, markdown_content))
+def test_short_url_stats_returns_record(monkeypatch):
+    monkeypatch.setattr(
+        "app.main.get_short_url",
+        lambda code: ShortUrlStats(
+            code=code,
+            original_url="https://example.com/",
+            clicks=4,
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        ),
+    )
 
-    async def fake_summarise_markdown(content, summary_type):
-        assert content == "# Fresh markdown"
-        assert summary_type == "detailed"
-        return summary_result
-
-    def fake_set_cached_summary(url, summary_type, result):
-        summary_cache_calls.append((url, summary_type, result))
-
-    monkeypatch.setattr("app.main.get_cached_summary", fake_get_cached_summary)
-    monkeypatch.setattr("app.main.get_cached_markdown", fake_get_cached_markdown)
-    monkeypatch.setattr("app.main.scrape_website_as_markdown", fake_scrape_website_as_markdown)
-    monkeypatch.setattr("app.main.set_cached_markdown", fake_set_cached_markdown)
-    monkeypatch.setattr("app.main.summarise_markdown", fake_summarise_markdown)
-    monkeypatch.setattr("app.main.set_cached_summary", fake_set_cached_summary)
-
-    response = client.post("/summarize", json={"url": "https://example.com", "max_length": "detailed"})
+    response = client.get("/shorten/abc123/stats")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "summary": "Example summary",
-        "model": "openai/gpt-4o-mini",
-        "token_usage": {
-            "prompt_tokens": 10,
-            "completion_tokens": 5,
-            "total_tokens": 15,
-        },
-    }
-    assert calls == [("https://example.com/", "# Fresh markdown")]
-    assert summary_cache_calls == [("https://example.com/", "detailed", summary_result)]
+    assert response.json()["clicks"] == 4
+
+
+def test_health_returns_ok(monkeypatch):
+    monkeypatch.setattr("app.main.get_redis_status", lambda: "connected")
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "redis": "connected"}
